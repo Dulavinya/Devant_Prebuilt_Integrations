@@ -61,10 +61,3 @@ public type StripeCustomerAddress record {|
     string postal_code?;
     string state?;
 |};
-
-// Event Data Type
-public type EventData record {
-    string sobjectType?;
-    string eventType?;
-    record {} payload?;
-};

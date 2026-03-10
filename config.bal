@@ -19,10 +19,12 @@ configurable boolean writeBackStripeId = true;
 configurable string[] recordTypeFilter = [];
 configurable string[] accountStatusFilter = [];
 
-// Salesforce Listener Configuration
-configurable string salesforceUsername = ?;
-configurable string salesforcePassword = ?;
-configurable boolean isSandbox = false;
+// External ID Configuration (for EXTERNAL_ID match key)
+configurable string salesforceExternalIdField = "External_Id__c";
+configurable string stripeExternalIdMetadataKey = "external_id";
+
+// Delete Handling Configuration
+configurable boolean deleteStripeCustomerOnSalesforceDelete = false;
 
 // Salesforce Auth Configuration
 public function getSalesforceAuthConfig() returns clientConfig:OAuth2RefreshTokenGrantConfig => {

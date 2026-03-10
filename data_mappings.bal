@@ -1,56 +1,57 @@
 import ballerina/log;
 
 // Map Salesforce Account to Stripe Customer
-public function mapAccountToStripeCustomer(SalesforceAccount account) returns record {} => {
-    "name": account.Name,
-    "email": account.Email__c,
-    "phone": account.Phone,
-    "description": account.Description,
-    "address": {
-        "line1": account.BillingStreet,
-        "city": account.BillingCity,
-        "state": account.BillingState,
-        "postal_code": account.BillingPostalCode,
-        "country": account.BillingCountry
-    },
-    "metadata": {
-        "salesforce_id": account.Id ?: "",
-        "source": "salesforce_account"
-    }
-};
+public isolated function mapAccountToStripeCustomer(SalesforceAccount account) returns record {} {
+    map<json> payload = {
+        "name": account.Name ?: "",
+        "metadata": {
+            "salesforce_id": account.Id ?: "",
+            "source": "salesforce_account"
+        }
+    };
+    if account.Email__c is string { payload["email"] = account.Email__c; }
+    if account.Phone is string { payload["phone"] = account.Phone; }
+    if account.Description is string { payload["description"] = account.Description; }
+
+    map<json> address = {};
+    if account.BillingStreet is string { address["line1"] = account.BillingStreet; }
+    if account.BillingCity is string { address["city"] = account.BillingCity; }
+    if account.BillingState is string { address["state"] = account.BillingState; }
+    if account.BillingPostalCode is string { address["postal_code"] = account.BillingPostalCode; }
+    if account.BillingCountry is string { address["country"] = account.BillingCountry; }
+    if address.length() > 0 { payload["address"] = address; }
+
+    return payload;
+}
 
 // Map Salesforce Contact to Stripe Customer
-public function mapContactToStripeCustomer(SalesforceContact contact) returns record {} {
-    string fullName = "";
-    if contact.FirstName is string {
-        fullName = contact.FirstName ?: "";
-    }
-    if contact.LastName is string {
-        string lastName = contact.LastName ?: "";
-        fullName = fullName + (fullName != "" ? " " : "") + lastName;
-    }
+public isolated function mapContactToStripeCustomer(SalesforceContact contact) returns record {} {
+    string fullName = (contact.FirstName ?: "") + (contact.FirstName is string ? " " : "") + (contact.LastName ?: "");
 
-    return {
-        "name": fullName,
-        "email": contact.Email,
-        "phone": contact.Phone,
-        "description": contact.Description,
-        "address": {
-            "line1": contact.MailingStreet,
-            "city": contact.MailingCity,
-            "state": contact.MailingState,
-            "postal_code": contact.MailingPostalCode,
-            "country": contact.MailingCountry
-        },
+    map<json> payload = {
+        "name": fullName.trim(),
         "metadata": {
             "salesforce_id": contact.Id ?: "",
             "source": "salesforce_contact"
         }
     };
+    if contact.Email is string { payload["email"] = contact.Email; }
+    if contact.Phone is string { payload["phone"] = contact.Phone; }
+    if contact.Description is string { payload["description"] = contact.Description; }
+
+    map<json> address = {};
+    if contact.MailingStreet is string { address["line1"] = contact.MailingStreet; }
+    if contact.MailingCity is string { address["city"] = contact.MailingCity; }
+    if contact.MailingState is string { address["state"] = contact.MailingState; }
+    if contact.MailingPostalCode is string { address["postal_code"] = contact.MailingPostalCode; }
+    if contact.MailingCountry is string { address["country"] = contact.MailingCountry; }
+    if address.length() > 0 { payload["address"] = address; }
+
+    return payload;
 }
 
 // Check if record passes filters
-public function passesFilters(string? recordTypeId, string? accountStatus) returns boolean {
+public isolated function passesFilters(string? recordTypeId, string? accountStatus) returns boolean {
     // Check RecordType filter
     if recordTypeFilter.length() > 0 {
         if recordTypeId is () {

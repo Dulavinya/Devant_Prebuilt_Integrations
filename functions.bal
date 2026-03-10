@@ -2,7 +2,14 @@ import ballerina/log;
 import ballerinax/stripe;
 
 // Sync Salesforce Account to Stripe
-public function syncAccountToStripe(SalesforceAccount account) returns error? {
+public isolated function syncAccountToStripe(SalesforceAccount account) returns error? {
+    // Validate account data
+    error? validationResult = validateAccount(account);
+    if validationResult is error {
+        log:printError("Account validation failed", accountId = account.Id, 'error = validationResult);
+        return validationResult;
+    }
+
     // Check if record passes filters
     if !passesFilters(account.RecordTypeId, account.AccountStatus__c) {
         log:printInfo("Account filtered out, skipping sync", accountId = account.Id);
@@ -55,7 +62,14 @@ public function syncAccountToStripe(SalesforceAccount account) returns error? {
 }
 
 // Sync Salesforce Contact to Stripe
-public function syncContactToStripe(SalesforceContact contact) returns error? {
+public isolated function syncContactToStripe(SalesforceContact contact) returns error? {
+    // Validate contact data
+    error? validationResult = validateContact(contact);
+    if validationResult is error {
+        log:printError("Contact validation failed", contactId = contact.Id, 'error = validationResult);
+        return validationResult;
+    }
+
     // Check if record passes filters (only RecordType for contacts)
     if !passesFilters(contact.RecordTypeId, ()) {
         log:printInfo("Contact filtered out, skipping sync", contactId = contact.Id);
@@ -108,7 +122,7 @@ public function syncContactToStripe(SalesforceContact contact) returns error? {
 }
 
 // Write back Stripe Customer ID to Salesforce
-function writeBackStripeIdToSalesforce(string objectType, string recordId, string stripeCustomerId) returns error? {
+isolated function writeBackStripeIdToSalesforce(string objectType, string recordId, string stripeCustomerId) returns error? {
     log:printInfo("Writing back Stripe ID to Salesforce", objectType = objectType, recordId = recordId, stripeCustomerId = stripeCustomerId);
     
     record {} updatePayload = {
@@ -117,4 +131,45 @@ function writeBackStripeIdToSalesforce(string objectType, string recordId, strin
 
     check salesforceClient->update(objectType, recordId, updatePayload);
     log:printInfo("Successfully wrote back Stripe ID to Salesforce");
+}
+
+// Delete Stripe Customer
+public isolated function deleteStripeCustomer(string stripeCustomerId) returns error? {
+    log:printInfo("Deleting Stripe customer", stripeCustomerId = stripeCustomerId);
+    
+    _ = check stripeClient->/customers/[stripeCustomerId].delete();
+    
+    log:printInfo("Successfully deleted Stripe customer", stripeCustomerId = stripeCustomerId);
+}
+
+// Handle Salesforce Account deletion
+public isolated function handleAccountDeletion(SalesforceAccount account) returns error? {
+    string? stripeCustomerId = account.Stripe_Customer_Id__c;
+    
+    if stripeCustomerId is () || stripeCustomerId == "" {
+        log:printInfo("Account has no Stripe Customer ID, nothing to delete", accountId = account.Id);
+        return;
+    }
+
+    if deleteStripeCustomerOnSalesforceDelete {
+        check deleteStripeCustomer(stripeCustomerId);
+    } else {
+        log:printInfo("Delete handling disabled, skipping Stripe customer deletion", stripeCustomerId = stripeCustomerId);
+    }
+}
+
+// Handle Salesforce Contact deletion
+public isolated function handleContactDeletion(SalesforceContact contact) returns error? {
+    string? stripeCustomerId = contact.Stripe_Customer_Id__c;
+    
+    if stripeCustomerId is () || stripeCustomerId == "" {
+        log:printInfo("Contact has no Stripe Customer ID, nothing to delete", contactId = contact.Id);
+        return;
+    }
+
+    if deleteStripeCustomerOnSalesforceDelete {
+        check deleteStripeCustomer(stripeCustomerId);
+    } else {
+        log:printInfo("Delete handling disabled, skipping Stripe customer deletion", stripeCustomerId = stripeCustomerId);
+    }
 }
