@@ -20,7 +20,7 @@ public function bulkSyncAccountsToStripe() returns error? {
         do {
             error? result = syncAccountToStripe(account);
             if result is error {
-                log:printError("Failed to sync Account", accountId = account.Id, 'error = result);
+                log:printError("Failed to sync Account", accountId = account?.Id, 'error = result);
                 errorCount += 1;
             } else {
                 successCount += 1;
@@ -50,7 +50,7 @@ public function bulkSyncContactsToStripe() returns error? {
         do {
             error? result = syncContactToStripe(contact);
             if result is error {
-                log:printError("Failed to sync Contact", contactId = contact.Id, 'error = result);
+                log:printError("Failed to sync Contact", contactId = contact?.Id, 'error = result);
                 errorCount += 1;
             } else {
                 successCount += 1;

@@ -48,7 +48,7 @@ service "/data/ChangeEvents" on changeEventListener {
             }
             error? result = syncAccountToStripe(account);
             if result is error {
-                log:printError("[onCreate] Failed to sync Account to Stripe", 'error = result, accountId = account.Id);
+                log:printError("[onCreate] Failed to sync Account to Stripe", 'error = result, accountId = account?.Id);
             }
         } else if entityType == "Contact" && (sourceObject == CONTACT || sourceObject == BOTH) {
             SalesforceContact|error contact = data.cloneWithType();
@@ -56,10 +56,10 @@ service "/data/ChangeEvents" on changeEventListener {
                 log:printError("[onCreate] Failed to parse Contact data", 'error = contact, data = data.toString());
                 return;
             }
-            log:printInfo("[onCreate] Contact parsed", contactId = contact.Id, email = contact.Email, name = (contact.FirstName ?: "") + " " + (contact.LastName ?: ""));
+            log:printInfo("[onCreate] Contact parsed", contactId = contact?.Id, email = contact?.Email, name = (contact?.FirstName ?: "") + " " + (contact?.LastName ?: ""));
             error? result = syncContactToStripe(contact);
             if result is error {
-                log:printError("[onCreate] Failed to sync Contact to Stripe", 'error = result, contactId = contact.Id);
+                log:printError("[onCreate] Failed to sync Contact to Stripe", 'error = result, contactId = contact?.Id);
             }
         } else {
             log:printInfo("[onCreate] No handler for entityType='" + entityType + "' sourceObject='" + sourceObject + "'");
@@ -78,25 +78,62 @@ service "/data/ChangeEvents" on changeEventListener {
 
         // Determine object type from event metadata
         string entityType = eventData.metadata?.entityName ?: "";
+        string recordId = eventData.metadata?.recordId ?: "";
+        log:printInfo("[onUpdate] entityType=" + entityType + " recordId=" + recordId + " sourceObject=" + sourceObject);
+
+        // Skip writeback-triggered update events (only Stripe_Customer_Id__c changed)
+        map<json> changedFields = eventData.changedData;
+
+        // Detect if this is actually a delete event mislabelled as update
+        json changeTypeVal = changedFields["ChangeEventHeader"] is map<json>
+            ? ((<map<json>>changedFields["ChangeEventHeader"])["changeType"] ?: "")
+            : "";
+        log:printInfo("[onUpdate] changeType from ChangeEventHeader: " + changeTypeVal.toString());
+        if changedFields.length() == 1 && changedFields.hasKey("Stripe_Customer_Id__c") {
+            log:printInfo("[onUpdate] Skipping writeback-triggered update (only Stripe_Customer_Id__c changed)");
+            return;
+        }
 
         // CDC changedData does not include Id — inject it from metadata.recordId
-        string recordId = eventData.metadata?.recordId ?: "";
-        map<json> data = eventData.changedData;
+        map<json> data = changedFields;
         data["Id"] = recordId;
+
+        log:printInfo("[onUpdate] changedData keys: " + data.keys().toString());
 
         // Route to appropriate handler based on entity type
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
-            SalesforceAccount account = check data.cloneWithType();
-            check syncAccountToStripe(account);
+            SalesforceAccount|error account = data.cloneWithType();
+            if account is error {
+                log:printError("[onUpdate] Failed to parse Account data", 'error = account, data = data.toString());
+                return;
+            }
+            error? result = syncAccountToStripe(account, true);
+            if result is error {
+                log:printError("[onUpdate] Failed to sync Account to Stripe", 'error = result, accountId = account?.Id);
+            }
         } else if entityType == "Contact" && (sourceObject == CONTACT || sourceObject == BOTH) {
-            SalesforceContact contact = check data.cloneWithType();
-            check syncContactToStripe(contact);
+            SalesforceContact|error contact = data.cloneWithType();
+            if contact is error {
+                log:printError("[onUpdate] Failed to parse Contact data", 'error = contact, data = data.toString());
+                return;
+            }
+            log:printInfo("[onUpdate] Contact parsed", contactId = contact?.Id, email = contact?.Email);
+            error? result = syncContactToStripe(contact, true);
+            if result is error {
+                log:printError("[onUpdate] Failed to sync Contact to Stripe", 'error = result, contactId = contact?.Id);
+            }
+        } else {
+            log:printInfo("[onUpdate] No handler for entityType='" + entityType + "' sourceObject='" + sourceObject + "'");
         }
     }
 
     // Handle Delete Events
     remote function onDelete(salesforce:EventData eventData) returns error? {
         log:printInfo("Received delete event from Salesforce");
+        log:printInfo("[onDelete] RAW changedData: " + eventData.changedData.toString());
+        log:printInfo("[onDelete] RAW metadata: entityName=" + (eventData.metadata?.entityName ?: "nil")
+            + " recordId=" + (eventData.metadata?.recordId ?: "nil")
+            + " changeType=" + (eventData.metadata?.changeType ?: "nil"));
 
         // Only process if sync direction allows SF to Stripe
         if syncDirection == STRIPE_TO_SF {

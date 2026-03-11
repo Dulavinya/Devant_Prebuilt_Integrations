@@ -2,17 +2,17 @@ import ballerina/log;
 import ballerinax/stripe;
 
 // Sync Salesforce Account to Stripe
-public isolated function syncAccountToStripe(SalesforceAccount account) returns error? {
+public isolated function syncAccountToStripe(SalesforceAccount account, boolean isUpdate = false) returns error? {
     // Validate account data
     error? validationResult = validateAccount(account);
     if validationResult is error {
-        log:printError("Account validation failed", accountId = account.Id, 'error = validationResult);
+        log:printError("Account validation failed", accountId = account?.Id, 'error = validationResult);
         return validationResult;
     }
 
     // Check if record passes filters
-    if !passesFilters(account.RecordTypeId, account.AccountStatus__c) {
-        log:printInfo("Account filtered out, skipping sync", accountId = account.Id);
+    if !passesFilters(account?.RecordTypeId, account?.AccountStatus__c) {
+        log:printInfo("Account filtered out, skipping sync", accountId = account?.Id);
         return;
     }
 
@@ -20,8 +20,8 @@ public isolated function syncAccountToStripe(SalesforceAccount account) returns 
     record {} customerPayload = mapAccountToStripeCustomer(account);
 
     // Check if customer already exists in Stripe
-    string? existingStripeId = account.Stripe_Customer_Id__c;
-    string? email = account.Email__c;
+    string? existingStripeId = account?.Stripe_Customer_Id__c;
+    string? email = account?.Email__c;
 
     if existingStripeId is string && existingStripeId != "" {
         // Update existing customer
@@ -38,8 +38,8 @@ public isolated function syncAccountToStripe(SalesforceAccount account) returns 
                 log:printInfo("Found existing Stripe customer by email", stripeCustomerId = existingCustomer.id);
                 stripe:customers_customer_body payload = check customerPayload.cloneWithType();
                 stripe:Customer updatedCustomer = check stripeClient->/customers/[existingCustomer.id].post(payload);
-                if writeBackStripeId {
-                    check writeBackStripeIdToSalesforce("Account", account.Id ?: "", updatedCustomer.id);
+                if writeBackStripeId && !isUpdate {
+                    check writeBackStripeIdToSalesforce("Account", account?.Id ?: "", updatedCustomer.id);
                 }
                 return;
             }
@@ -47,47 +47,49 @@ public isolated function syncAccountToStripe(SalesforceAccount account) returns 
 
         // Search for existing customer by SF Account Id in Stripe metadata if match key is EXTERNAL_ID
         if matchKey == EXTERNAL_ID {
-            string sfId = account.Id ?: "";
-            stripe:CustomerResourceCustomerList searchResult = check stripeClient->/customers.get();
+            string sfId = account?.Id ?: "";
+            log:printInfo("[syncAccountToStripe] Searching Stripe by salesforce_id metadata", sfId = sfId);
+            stripe:CustomerResourceCustomerList searchResult = check stripeClient->/customers.get('limit = 100);
             foreach stripe:Customer c in searchResult.data {
                 map<string>? meta = c.metadata;
                 if meta is map<string> && meta["salesforce_id"] == sfId {
                     log:printInfo("Found existing Stripe customer by salesforce_id metadata", stripeCustomerId = c.id);
                     stripe:customers_customer_body payload = check customerPayload.cloneWithType();
                     stripe:Customer updatedCustomer = check stripeClient->/customers/[c.id].post(payload);
-                    if writeBackStripeId {
+                    if writeBackStripeId && !isUpdate {
                         check writeBackStripeIdToSalesforce("Account", sfId, updatedCustomer.id);
                     }
                     return;
                 }
             }
+            log:printWarn("[syncAccountToStripe] No Stripe customer found for salesforce_id, will create new", sfId = sfId);
         }
 
         // Create new customer
-        log:printInfo("Creating new Stripe customer", accountId = account.Id);
+        log:printInfo("Creating new Stripe customer", accountId = account?.Id);
         stripe:customers_body payload = check customerPayload.cloneWithType();
         stripe:Customer newCustomer = check stripeClient->/customers.post(payload);
         log:printInfo("Successfully created Stripe customer", stripeCustomerId = newCustomer.id);
 
         // Write back Stripe ID to Salesforce if configured
         if writeBackStripeId {
-            check writeBackStripeIdToSalesforce("Account", account.Id ?: "", newCustomer.id);
+            check writeBackStripeIdToSalesforce("Account", account?.Id ?: "", newCustomer.id);
         }
     }
 }
 
 // Sync Salesforce Contact to Stripe
-public isolated function syncContactToStripe(SalesforceContact contact) returns error? {
+public isolated function syncContactToStripe(SalesforceContact contact, boolean isUpdate = false) returns error? {
     // Validate contact data
     error? validationResult = validateContact(contact);
     if validationResult is error {
-        log:printError("Contact validation failed", contactId = contact.Id, 'error = validationResult);
+        log:printError("Contact validation failed", contactId = contact?.Id, 'error = validationResult);
         return validationResult;
     }
 
     // Check if record passes filters (only RecordType for contacts)
-    if !passesFilters(contact.RecordTypeId, ()) {
-        log:printInfo("Contact filtered out, skipping sync", contactId = contact.Id);
+    if !passesFilters(contact?.RecordTypeId, ()) {
+        log:printInfo("Contact filtered out, skipping sync", contactId = contact?.Id);
         return;
     }
 
@@ -95,8 +97,8 @@ public isolated function syncContactToStripe(SalesforceContact contact) returns 
     record {} customerPayload = mapContactToStripeCustomer(contact);
 
     // Check if customer already exists in Stripe
-    string? existingStripeId = contact.Stripe_Customer_Id__c;
-    string? email = contact.Email;
+    string? existingStripeId = contact?.Stripe_Customer_Id__c;
+    string? email = contact?.Email;
 
     if existingStripeId is string && existingStripeId != "" {
         // Update existing customer
@@ -113,8 +115,8 @@ public isolated function syncContactToStripe(SalesforceContact contact) returns 
                 log:printInfo("Found existing Stripe customer by email", stripeCustomerId = existingCustomer.id);
                 stripe:customers_customer_body payload = check customerPayload.cloneWithType();
                 stripe:Customer updatedCustomer = check stripeClient->/customers/[existingCustomer.id].post(payload);
-                if writeBackStripeId {
-                    check writeBackStripeIdToSalesforce("Contact", contact.Id ?: "", updatedCustomer.id);
+                if writeBackStripeId && !isUpdate {
+                    check writeBackStripeIdToSalesforce("Contact", contact?.Id ?: "", updatedCustomer.id);
                 }
                 return;
             }
@@ -122,31 +124,33 @@ public isolated function syncContactToStripe(SalesforceContact contact) returns 
 
         // Search for existing customer by SF Contact Id in Stripe metadata if match key is EXTERNAL_ID
         if matchKey == EXTERNAL_ID {
-            string sfId = contact.Id ?: "";
-            stripe:CustomerResourceCustomerList searchResult = check stripeClient->/customers.get();
+            string sfId = contact?.Id ?: "";
+            log:printInfo("[syncContactToStripe] Searching Stripe by salesforce_id metadata", sfId = sfId);
+            stripe:CustomerResourceCustomerList searchResult = check stripeClient->/customers.get('limit = 100);
             foreach stripe:Customer c in searchResult.data {
                 map<string>? meta = c.metadata;
                 if meta is map<string> && meta["salesforce_id"] == sfId {
                     log:printInfo("Found existing Stripe customer by salesforce_id metadata", stripeCustomerId = c.id);
                     stripe:customers_customer_body payload = check customerPayload.cloneWithType();
                     stripe:Customer updatedCustomer = check stripeClient->/customers/[c.id].post(payload);
-                    if writeBackStripeId {
+                    if writeBackStripeId && !isUpdate {
                         check writeBackStripeIdToSalesforce("Contact", sfId, updatedCustomer.id);
                     }
                     return;
                 }
             }
+            log:printWarn("[syncContactToStripe] No Stripe customer found for salesforce_id, will create new", sfId = sfId);
         }
 
         // Create new customer
-        log:printInfo("Creating new Stripe customer", contactId = contact.Id);
+        log:printInfo("Creating new Stripe customer", contactId = contact?.Id);
         stripe:customers_body payload = check customerPayload.cloneWithType();
         stripe:Customer newCustomer = check stripeClient->/customers.post(payload);
         log:printInfo("Successfully created Stripe customer", stripeCustomerId = newCustomer.id);
 
         // Write back Stripe ID to Salesforce if configured
         if writeBackStripeId {
-            check writeBackStripeIdToSalesforce("Contact", contact.Id ?: "", newCustomer.id);
+            check writeBackStripeIdToSalesforce("Contact", contact?.Id ?: "", newCustomer.id);
         }
     }
 }
@@ -192,10 +196,10 @@ public isolated function deleteStripeCustomer(string stripeCustomerId) returns e
 
 // Handle Salesforce Account deletion
 public isolated function handleAccountDeletion(SalesforceAccount account) returns error? {
-    string? stripeCustomerId = account.Stripe_Customer_Id__c;
+    string? stripeCustomerId = account?.Stripe_Customer_Id__c;
     
     if stripeCustomerId is () || stripeCustomerId == "" {
-        log:printInfo("Account has no Stripe Customer ID, nothing to delete", accountId = account.Id);
+        log:printInfo("Account has no Stripe Customer ID, nothing to delete", accountId = account?.Id);
         return;
     }
 
@@ -208,10 +212,10 @@ public isolated function handleAccountDeletion(SalesforceAccount account) return
 
 // Handle Salesforce Contact deletion
 public isolated function handleContactDeletion(SalesforceContact contact) returns error? {
-    string? stripeCustomerId = contact.Stripe_Customer_Id__c;
+    string? stripeCustomerId = contact?.Stripe_Customer_Id__c;
     
     if stripeCustomerId is () || stripeCustomerId == "" {
-        log:printInfo("Contact has no Stripe Customer ID, nothing to delete", contactId = contact.Id);
+        log:printInfo("Contact has no Stripe Customer ID, nothing to delete", contactId = contact?.Id);
         return;
     }
 
