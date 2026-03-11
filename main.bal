@@ -51,12 +51,26 @@ service "/data/ChangeEvents" on changeEventListener {
                 log:printError("[onCreate] Failed to sync Account to Stripe", 'error = result, accountId = account?.Id);
             }
         } else if entityType == "Contact" && (sourceObject == CONTACT || sourceObject == BOTH) {
-            SalesforceContact|error contact = data.cloneWithType();
-            if contact is error {
-                log:printError("[onCreate] Failed to parse Contact data", 'error = contact, data = data.toString());
-                return;
+            // CDC changedData may not include FirstName/LastName on create (only Name)
+            // Fetch full record to ensure we have all fields
+            SalesforceContact contact;
+            string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
+            stream<SalesforceContact, error?> queryResult = check salesforceClient->query(soqlQuery);
+            record {|SalesforceContact value;|}? queryRecord = check queryResult.next();
+            if queryRecord is record {|SalesforceContact value;|} {
+                contact = queryRecord.value;
+                log:printInfo("[onCreate] Fetched full Contact record", contactId = contact?.Id, firstName = contact?.FirstName, lastName = contact?.LastName);
+            } else {
+                // Fallback to CDC data if query returns nothing
+                log:printWarn("[onCreate] SOQL query returned no results, using CDC data", recordId = recordId);
+                SalesforceContact|error cdcContact = data.cloneWithType();
+                if cdcContact is error {
+                    log:printError("[onCreate] Failed to parse Contact data", 'error = cdcContact, data = data.toString());
+                    return;
+                }
+                contact = cdcContact;
             }
-            log:printInfo("[onCreate] Contact parsed", contactId = contact?.Id, email = contact?.Email, name = (contact?.FirstName ?: "") + " " + (contact?.LastName ?: ""));
+            log:printInfo("[onCreate] Contact parsed", contactId = contact?.Id, email = contact?.Email, firstName = contact?.FirstName, lastName = contact?.LastName);
             error? result = syncContactToStripe(contact);
             if result is error {
                 log:printError("[onCreate] Failed to sync Contact to Stripe", 'error = result, contactId = contact?.Id);

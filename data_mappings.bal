@@ -39,10 +39,12 @@ public isolated function mapContactToStripeCustomer(SalesforceContact contact) r
     };
     
     // Only include name if first or last name is present
-    string fullName = (contact?.FirstName ?: "") + (contact?.FirstName is string ? " " : "") + (contact?.LastName ?: "");
-    string trimmedName = fullName.trim();
-    if trimmedName != "" {
-        payload["name"] = trimmedName;
+    string firstName = contact?.FirstName ?: "";
+    string lastName = contact?.LastName ?: "";
+    string fullName = (firstName + " " + lastName).trim();
+    log:printInfo("[mapContactToStripeCustomer] Building name", firstName = firstName, lastName = lastName, fullName = fullName);
+    if fullName != "" {
+        payload["name"] = fullName;
     }
     
     if contact?.Email is string { payload["email"] = contact?.Email; }

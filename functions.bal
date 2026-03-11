@@ -95,6 +95,7 @@ public isolated function syncContactToStripe(SalesforceContact contact, boolean 
 
     // Map to Stripe customer payload
     record {} customerPayload = mapContactToStripeCustomer(contact);
+    log:printInfo("[syncContactToStripe] Raw payload from mapper", payload = customerPayload.toString());
 
     // Check if customer already exists in Stripe
     string? existingStripeId = contact?.Stripe_Customer_Id__c;
@@ -104,6 +105,7 @@ public isolated function syncContactToStripe(SalesforceContact contact, boolean 
         // Update existing customer
         log:printInfo("Updating existing Stripe customer", stripeCustomerId = existingStripeId);
         stripe:customers_customer_body payload = check customerPayload.cloneWithType();
+        log:printInfo("[syncContactToStripe] After cloneWithType, updating customer", payload = payload.toString());
         stripe:Customer updatedCustomer = check stripeClient->/customers/[existingStripeId].post(payload);
         log:printInfo("Successfully updated Stripe customer", stripeCustomerId = updatedCustomer.id);
     } else {
@@ -114,6 +116,7 @@ public isolated function syncContactToStripe(SalesforceContact contact, boolean 
                 stripe:Customer existingCustomer = searchResult.data[0];
                 log:printInfo("Found existing Stripe customer by email", stripeCustomerId = existingCustomer.id);
                 stripe:customers_customer_body payload = check customerPayload.cloneWithType();
+                log:printInfo("[syncContactToStripe] After cloneWithType (email path), updating customer", payload = payload.toString());
                 stripe:Customer updatedCustomer = check stripeClient->/customers/[existingCustomer.id].post(payload);
                 if writeBackStripeId && !isUpdate {
                     check writeBackStripeIdToSalesforce("Contact", contact?.Id ?: "", updatedCustomer.id);
@@ -132,6 +135,7 @@ public isolated function syncContactToStripe(SalesforceContact contact, boolean 
                 if meta is map<string> && meta["salesforce_id"] == sfId {
                     log:printInfo("Found existing Stripe customer by salesforce_id metadata", stripeCustomerId = c.id);
                     stripe:customers_customer_body payload = check customerPayload.cloneWithType();
+                    log:printInfo("[syncContactToStripe] After cloneWithType (metadata path), updating customer", payload = payload.toString());
                     stripe:Customer updatedCustomer = check stripeClient->/customers/[c.id].post(payload);
                     if writeBackStripeId && !isUpdate {
                         check writeBackStripeIdToSalesforce("Contact", sfId, updatedCustomer.id);
@@ -145,6 +149,7 @@ public isolated function syncContactToStripe(SalesforceContact contact, boolean 
         // Create new customer
         log:printInfo("Creating new Stripe customer", contactId = contact?.Id);
         stripe:customers_body payload = check customerPayload.cloneWithType();
+        log:printInfo("[syncContactToStripe] After cloneWithType, creating new customer", payload = payload.toString());
         stripe:Customer newCustomer = check stripeClient->/customers.post(payload);
         log:printInfo("Successfully created Stripe customer", stripeCustomerId = newCustomer.id);
 
