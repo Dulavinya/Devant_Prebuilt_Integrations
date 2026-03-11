@@ -3,12 +3,17 @@ import ballerina/log;
 // Map Salesforce Account to Stripe Customer
 public isolated function mapAccountToStripeCustomer(SalesforceAccount account) returns record {} {
     map<json> payload = {
-        "name": account?.Name ?: "",
         "metadata": {
             "salesforce_id": account?.Id ?: "",
             "source": "salesforce_account"
         }
     };
+    
+    // Only include name if it's not empty
+    if account?.Name is string && account?.Name != "" {
+        payload["name"] = account?.Name;
+    }
+    
     if account?.Email__c is string { payload["email"] = account?.Email__c; }
     if account?.Phone is string { payload["phone"] = account?.Phone; }
     if account?.Description is string { payload["description"] = account?.Description; }
@@ -26,15 +31,20 @@ public isolated function mapAccountToStripeCustomer(SalesforceAccount account) r
 
 // Map Salesforce Contact to Stripe Customer
 public isolated function mapContactToStripeCustomer(SalesforceContact contact) returns record {} {
-    string fullName = (contact?.FirstName ?: "") + (contact?.FirstName is string ? " " : "") + (contact?.LastName ?: "");
-
     map<json> payload = {
-        "name": fullName.trim(),
         "metadata": {
             "salesforce_id": contact?.Id ?: "",
             "source": "salesforce_contact"
         }
     };
+    
+    // Only include name if first or last name is present
+    string fullName = (contact?.FirstName ?: "") + (contact?.FirstName is string ? " " : "") + (contact?.LastName ?: "");
+    string trimmedName = fullName.trim();
+    if trimmedName != "" {
+        payload["name"] = trimmedName;
+    }
+    
     if contact?.Email is string { payload["email"] = contact?.Email; }
     if contact?.Phone is string { payload["phone"] = contact?.Phone; }
     if contact?.Description is string { payload["description"] = contact?.Description; }
