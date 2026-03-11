@@ -106,27 +106,26 @@ service "/data/ChangeEvents" on changeEventListener {
 
         // Determine object type from event metadata
         string entityType = eventData.metadata?.entityName ?: "";
-
-        // CDC changedData does not include Id — inject it from metadata.recordId
         string recordId = eventData.metadata?.recordId ?: "";
-        map<json> data = eventData.changedData;
-        data["Id"] = recordId;
 
-        // Route to appropriate handler based on entity type
+        if recordId == "" {
+            log:printWarn("[onDelete] No recordId in event metadata, skipping");
+            return;
+        }
+
+        log:printInfo("[onDelete] Processing delete", entityType = entityType, recordId = recordId);
+
+        // Record is already deleted in SF — find Stripe customer by salesforce_id metadata
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
-            SalesforceAccount account = check data.cloneWithType();
-            error? result = handleAccountDeletion(account);
+            error? result = deleteStripeCustomerBySalesforceId(recordId);
             if result is error {
-                log:printError("Failed to handle Account deletion", accountId = account.Id, 'error = result);
+                log:printError("Failed to handle Account deletion", accountId = recordId, 'error = result);
             }
-            return result;
         } else if entityType == "Contact" && (sourceObject == CONTACT || sourceObject == BOTH) {
-            SalesforceContact contact = check data.cloneWithType();
-            error? result = handleContactDeletion(contact);
+            error? result = deleteStripeCustomerBySalesforceId(recordId);
             if result is error {
-                log:printError("Failed to handle Contact deletion", contactId = contact.Id, 'error = result);
+                log:printError("Failed to handle Contact deletion", contactId = recordId, 'error = result);
             }
-            return result;
         }
     }
 

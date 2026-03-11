@@ -163,6 +163,24 @@ isolated function writeBackStripeIdToSalesforce(string objectType, string record
     log:printInfo("Successfully wrote back Stripe ID to Salesforce");
 }
 
+// Delete Stripe customer by searching for salesforce_id in metadata
+// Used when the SF record is already deleted and cannot be fetched
+public isolated function deleteStripeCustomerBySalesforceId(string salesforceId) returns error? {
+    log:printInfo("Looking up Stripe customer by salesforce_id", salesforceId = salesforceId);
+
+    stripe:CustomerResourceCustomerList result = check stripeClient->/customers.get();
+    foreach stripe:Customer c in result.data {
+        map<string>? meta = c.metadata;
+        if meta is map<string> && meta["salesforce_id"] == salesforceId {
+            log:printInfo("Found Stripe customer, deleting", stripeCustomerId = c.id, salesforceId = salesforceId);
+            _ = check stripeClient->/customers/[c.id].delete();
+            log:printInfo("Successfully deleted Stripe customer", stripeCustomerId = c.id);
+            return;
+        }
+    }
+    log:printWarn("No Stripe customer found for salesforce_id, nothing to delete", salesforceId = salesforceId);
+}
+
 // Delete Stripe Customer
 public isolated function deleteStripeCustomer(string stripeCustomerId) returns error? {
     log:printInfo("Deleting Stripe customer", stripeCustomerId = stripeCustomerId);

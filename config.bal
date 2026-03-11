@@ -24,7 +24,7 @@ configurable string salesforceExternalIdField = "External_Id__c";
 configurable string stripeExternalIdMetadataKey = "external_id";
 
 // Delete Handling Configuration
-configurable boolean deleteStripeCustomerOnSalesforceDelete = false;
+configurable boolean deleteStripeCustomerOnSalesforceDelete = true;
 
 // Salesforce Auth Configuration
 public function getSalesforceAuthConfig() returns clientConfig:OAuth2RefreshTokenGrantConfig => {
