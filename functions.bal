@@ -34,17 +34,32 @@ public isolated function syncAccountToStripe(SalesforceAccount account) returns 
         if matchKey == EMAIL && email is string && email != "" {
             stripe:CustomerResourceCustomerList searchResult = check stripeClient->/customers.get(email = email);
             if searchResult.data.length() > 0 {
-                // Customer exists, update it
                 stripe:Customer existingCustomer = searchResult.data[0];
                 log:printInfo("Found existing Stripe customer by email", stripeCustomerId = existingCustomer.id);
                 stripe:customers_customer_body payload = check customerPayload.cloneWithType();
                 stripe:Customer updatedCustomer = check stripeClient->/customers/[existingCustomer.id].post(payload);
-                
-                // Write back Stripe ID to Salesforce if configured
                 if writeBackStripeId {
                     check writeBackStripeIdToSalesforce("Account", account.Id ?: "", updatedCustomer.id);
                 }
                 return;
+            }
+        }
+
+        // Search for existing customer by SF Account Id in Stripe metadata if match key is EXTERNAL_ID
+        if matchKey == EXTERNAL_ID {
+            string sfId = account.Id ?: "";
+            stripe:CustomerResourceCustomerList searchResult = check stripeClient->/customers.get();
+            foreach stripe:Customer c in searchResult.data {
+                map<string>? meta = c.metadata;
+                if meta is map<string> && meta["salesforce_id"] == sfId {
+                    log:printInfo("Found existing Stripe customer by salesforce_id metadata", stripeCustomerId = c.id);
+                    stripe:customers_customer_body payload = check customerPayload.cloneWithType();
+                    stripe:Customer updatedCustomer = check stripeClient->/customers/[c.id].post(payload);
+                    if writeBackStripeId {
+                        check writeBackStripeIdToSalesforce("Account", sfId, updatedCustomer.id);
+                    }
+                    return;
+                }
             }
         }
 
@@ -94,17 +109,32 @@ public isolated function syncContactToStripe(SalesforceContact contact) returns 
         if matchKey == EMAIL && email is string && email != "" {
             stripe:CustomerResourceCustomerList searchResult = check stripeClient->/customers.get(email = email);
             if searchResult.data.length() > 0 {
-                // Customer exists, update it
                 stripe:Customer existingCustomer = searchResult.data[0];
                 log:printInfo("Found existing Stripe customer by email", stripeCustomerId = existingCustomer.id);
                 stripe:customers_customer_body payload = check customerPayload.cloneWithType();
                 stripe:Customer updatedCustomer = check stripeClient->/customers/[existingCustomer.id].post(payload);
-                
-                // Write back Stripe ID to Salesforce if configured
                 if writeBackStripeId {
                     check writeBackStripeIdToSalesforce("Contact", contact.Id ?: "", updatedCustomer.id);
                 }
                 return;
+            }
+        }
+
+        // Search for existing customer by SF Contact Id in Stripe metadata if match key is EXTERNAL_ID
+        if matchKey == EXTERNAL_ID {
+            string sfId = contact.Id ?: "";
+            stripe:CustomerResourceCustomerList searchResult = check stripeClient->/customers.get();
+            foreach stripe:Customer c in searchResult.data {
+                map<string>? meta = c.metadata;
+                if meta is map<string> && meta["salesforce_id"] == sfId {
+                    log:printInfo("Found existing Stripe customer by salesforce_id metadata", stripeCustomerId = c.id);
+                    stripe:customers_customer_body payload = check customerPayload.cloneWithType();
+                    stripe:Customer updatedCustomer = check stripeClient->/customers/[c.id].post(payload);
+                    if writeBackStripeId {
+                        check writeBackStripeIdToSalesforce("Contact", sfId, updatedCustomer.id);
+                    }
+                    return;
+                }
             }
         }
 

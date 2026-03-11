@@ -14,20 +14,12 @@ public isolated function validateAccount(SalesforceAccount account) returns erro
             log:printWarn("Account has no email, cannot sync with EMAIL match key", accountId = account.Id);
             return error("Account email is required for EMAIL match key");
         }
-        
-        // Basic email validation
         if !isValidEmail(email) {
             log:printWarn("Account has invalid email format", accountId = account.Id, email = email);
             return error("Invalid email format");
         }
     }
-
-    // Validate external ID if match key is EXTERNAL_ID
-    if matchKey == EXTERNAL_ID {
-        // Use reflection to get the external ID field value
-        // For now, we'll skip this validation as Ballerina doesn't support dynamic field access
-        log:printDebug("External ID validation skipped - implement based on your field name");
-    }
+    // EXTERNAL_ID uses SF Id stored in Stripe metadata — always present if Id check above passed
 
     return;
 }
@@ -46,13 +38,12 @@ public isolated function validateContact(SalesforceContact contact) returns erro
             log:printWarn("Contact has no email, cannot sync with EMAIL match key", contactId = contact.Id);
             return error("Contact email is required for EMAIL match key");
         }
-        
-        // Basic email validation
         if !isValidEmail(email) {
             log:printWarn("Contact has invalid email format", contactId = contact.Id, email = email);
             return error("Invalid email format");
         }
     }
+    // EXTERNAL_ID uses SF Id stored in Stripe metadata — always present if Id check above passed
 
     return;
 }
