@@ -14,8 +14,7 @@ public isolated function mapAccountToStripeCustomer(SalesforceAccount account) r
         payload["name"] = account?.Name;
     }
     
-    // Note: Accounts don't have standard Email field (only Contacts do)
-    // If you need email for Accounts, add custom Email__c field in Salesforce
+    if account?.Email__c is string { payload["email"] = account?.Email__c; }
     if account?.Phone is string { payload["phone"] = account?.Phone; }
     if account?.Description is string { payload["description"] = account?.Description; }
 

@@ -106,14 +106,23 @@ service "/data/ChangeEvents" on changeEventListener {
             : "";
         log:printInfo("[onUpdate] changeType from ChangeEventHeader: " + changeTypeVal.toString());
         
-        // Filter out standard CDC fields to see what actually changed
-        string[] actualChangedFields = changedFields.keys().filter(key => 
-            key != "LastModifiedDate" && key != "ChangeEventHeader"
-        );
+        // Filter out system fields that are always present in CDC events
+        map<json> filteredFields = {};
+        foreach var [key, value] in changedFields.entries() {
+            if key != "ChangeEventHeader" && key != "LastModifiedDate" {
+                filteredFields[key] = value;
+            }
+        }
         
-        // If only Stripe_Customer_Id__c changed (writeback), skip to prevent loop
-        if actualChangedFields.length() == 1 && actualChangedFields[0] == "Stripe_Customer_Id__c" {
-            log:printInfo("[onUpdate] Skipping writeback-triggered update (only Stripe_Customer_Id__c changed)");
+        // If only Stripe_Customer_Id__c was changed (after filtering system fields), skip processing
+        if filteredFields.length() == 1 && filteredFields.hasKey("Stripe_Customer_Id__c") {
+            log:printInfo("[onUpdate] Skipping writeback-triggered update (Stripe_Customer_Id__c changed)");
+            return;
+        }
+        
+        // If no meaningful fields changed (empty after filtering), skip processing
+        if filteredFields.length() == 0 {
+            log:printInfo("[onUpdate] No meaningful fields changed, skipping update");
             return;
         }
 
@@ -125,11 +134,43 @@ service "/data/ChangeEvents" on changeEventListener {
 
         // Route to appropriate handler based on entity type
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
-            SalesforceAccount|error account = data.cloneWithType();
-            if account is error {
-                log:printError("[onUpdate] Failed to parse Account data", 'error = account, data = data.toString());
-                return;
+            // CDC changedData only contains changed fields - fetch full record to get all fields including Stripe_Customer_Id__c
+            SalesforceAccount account;
+            string soqlQuery = string `SELECT Id, Name, Phone, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
+            stream<SalesforceAccount, error?>|error queryResult = salesforceClient->query(soqlQuery);
+            if queryResult is error {
+                log:printError("[onUpdate] SOQL query failed", 'error = queryResult, recordId = recordId);
+                SalesforceAccount|error cdcAccount = data.cloneWithType();
+                if cdcAccount is error {
+                    log:printError("[onUpdate] Failed to parse Account data", 'error = cdcAccount, data = data.toString());
+                    return;
+                }
+                account = cdcAccount;
+            } else {
+                record {|SalesforceAccount value;|}|error? queryRecord = queryResult.next();
+                if queryRecord is error {
+                    log:printError("[onUpdate] Failed to read query result", 'error = queryRecord, recordId = recordId);
+                    SalesforceAccount|error cdcAccount = data.cloneWithType();
+                    if cdcAccount is error {
+                        log:printError("[onUpdate] Failed to parse Account data", 'error = cdcAccount, data = data.toString());
+                        return;
+                    }
+                    account = cdcAccount;
+                } else if queryRecord is record {|SalesforceAccount value;|} {
+                    account = queryRecord.value;
+                    log:printInfo("[onUpdate] Fetched full Account record", accountId = account?.Id, name = account?.Name);
+                } else {
+                    // Query returned nothing
+                    log:printWarn("[onUpdate] SOQL query returned no results, using CDC data", recordId = recordId);
+                    SalesforceAccount|error cdcAccount = data.cloneWithType();
+                    if cdcAccount is error {
+                        log:printError("[onUpdate] Failed to parse Account data", 'error = cdcAccount, data = data.toString());
+                        return;
+                    }
+                    account = cdcAccount;
+                }
             }
+            log:printInfo("[onUpdate] Account parsed", accountId = account?.Id, name = account?.Name, stripeCustomerId = account?.Stripe_Customer_Id__c);
             error? result = syncAccountToStripe(account, true);
             if result is error {
                 log:printError("[onUpdate] Failed to sync Account to Stripe", 'error = result, accountId = account?.Id);

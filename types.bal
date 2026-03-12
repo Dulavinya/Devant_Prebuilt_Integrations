@@ -22,6 +22,7 @@ public enum MatchKey {
 public type SalesforceAccount record {|
     string? Id?;
     string? Name?;
+    string? Email__c?;
     string? Phone?;
     string? BillingStreet?;
     string? BillingCity?;
