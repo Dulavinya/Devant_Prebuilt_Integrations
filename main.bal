@@ -105,7 +105,14 @@ service "/data/ChangeEvents" on changeEventListener {
             ? ((<map<json>>changedFields["ChangeEventHeader"])["changeType"] ?: "")
             : "";
         log:printInfo("[onUpdate] changeType from ChangeEventHeader: " + changeTypeVal.toString());
-        if changedFields.length() == 1 && changedFields.hasKey("Stripe_Customer_Id__c") {
+        
+        // Filter out standard CDC fields to see what actually changed
+        string[] actualChangedFields = changedFields.keys().filter(key => 
+            key != "LastModifiedDate" && key != "ChangeEventHeader"
+        );
+        
+        // If only Stripe_Customer_Id__c changed (writeback), skip to prevent loop
+        if actualChangedFields.length() == 1 && actualChangedFields[0] == "Stripe_Customer_Id__c" {
             log:printInfo("[onUpdate] Skipping writeback-triggered update (only Stripe_Customer_Id__c changed)");
             return;
         }

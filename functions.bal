@@ -21,7 +21,6 @@ public isolated function syncAccountToStripe(SalesforceAccount account, boolean 
 
     // Check if customer already exists in Stripe
     string? existingStripeId = account?.Stripe_Customer_Id__c;
-    string? email = account?.Email__c;
 
     if existingStripeId is string && existingStripeId != "" {
         // Update existing customer
@@ -30,20 +29,8 @@ public isolated function syncAccountToStripe(SalesforceAccount account, boolean 
         stripe:Customer updatedCustomer = check stripeClient->/customers/[existingStripeId].post(payload);
         log:printInfo("Successfully updated Stripe customer", stripeCustomerId = updatedCustomer.id);
     } else {
-        // Search for existing customer by email if match key is EMAIL
-        if matchKey == EMAIL && email is string && email != "" {
-            stripe:CustomerResourceCustomerList searchResult = check stripeClient->/customers.get(email = email);
-            if searchResult.data.length() > 0 {
-                stripe:Customer existingCustomer = searchResult.data[0];
-                log:printInfo("Found existing Stripe customer by email", stripeCustomerId = existingCustomer.id);
-                stripe:customers_customer_body payload = check customerPayload.cloneWithType();
-                stripe:Customer updatedCustomer = check stripeClient->/customers/[existingCustomer.id].post(payload);
-                if writeBackStripeId && !isUpdate {
-                    check writeBackStripeIdToSalesforce("Account", account?.Id ?: "", updatedCustomer.id);
-                }
-                return;
-            }
-        }
+        // Note: Accounts don't have standard Email field, only Contacts do
+        // If you need email matching for Accounts, add a custom Email__c field to Account object
 
         // Search for existing customer by SF Account Id in Stripe metadata if match key is EXTERNAL_ID
         if matchKey == EXTERNAL_ID {
@@ -182,7 +169,19 @@ public isolated function deleteStripeCustomerBySalesforceId(string salesforceId)
         map<string>? meta = c.metadata;
         if meta is map<string> && meta["salesforce_id"] == salesforceId {
             log:printInfo("Found Stripe customer, deleting", stripeCustomerId = c.id, salesforceId = salesforceId);
-            _ = check stripeClient->/customers/[c.id].delete();
+            
+            // Try to delete, handle case where customer was already deleted
+            var deleteResult = stripeClient->/customers/[c.id].delete();
+            if deleteResult is error {
+                // Check if it's a "not found" error (customer already deleted)
+                string errMsg = deleteResult.message();
+                if errMsg.includes("No such customer") || errMsg.includes("resource_missing") {
+                    log:printInfo("Stripe customer already deleted, skipping", stripeCustomerId = c.id);
+                    return;
+                }
+                // Re-throw other errors
+                return deleteResult;
+            }
             log:printInfo("Successfully deleted Stripe customer", stripeCustomerId = c.id);
             return;
         }
@@ -194,7 +193,18 @@ public isolated function deleteStripeCustomerBySalesforceId(string salesforceId)
 public isolated function deleteStripeCustomer(string stripeCustomerId) returns error? {
     log:printInfo("Deleting Stripe customer", stripeCustomerId = stripeCustomerId);
     
-    _ = check stripeClient->/customers/[stripeCustomerId].delete();
+    // Try to delete, handle case where customer was already deleted
+    var deleteResult = stripeClient->/customers/[stripeCustomerId].delete();
+    if deleteResult is error {
+        // Check if it's a "not found" error (customer already deleted)
+        string errMsg = deleteResult.message();
+        if errMsg.includes("No such customer") || errMsg.includes("resource_missing") {
+            log:printInfo("Stripe customer already deleted, skipping", stripeCustomerId = stripeCustomerId);
+            return;
+        }
+        // Re-throw other errors
+        return deleteResult;
+    }
     
     log:printInfo("Successfully deleted Stripe customer", stripeCustomerId = stripeCustomerId);
 }

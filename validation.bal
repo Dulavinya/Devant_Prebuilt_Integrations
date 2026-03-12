@@ -7,19 +7,13 @@ public isolated function validateAccount(SalesforceAccount account) returns erro
         return error("Account ID is required");
     }
 
-    // Validate email if match key is EMAIL
+    // Note: Accounts don't have standard Email field
+    // Only EXTERNAL_ID match key works with Accounts (uses SF Id in Stripe metadata)
+    // For EMAIL match key, use Contacts which have standard Email field
     if matchKey == EMAIL {
-        string? email = account?.Email__c;
-        if email is () || email == "" {
-            log:printWarn("Account has no email, cannot sync with EMAIL match key", accountId = account?.Id);
-            return error("Account email is required for EMAIL match key");
-        }
-        if !isValidEmail(email) {
-            log:printWarn("Account has invalid email format", accountId = account?.Id, email = email);
-            return error("Invalid email format");
-        }
+        log:printWarn("Account sync with EMAIL match key not supported (no Email field)", accountId = account?.Id);
+        return error("Accounts don't support EMAIL match key - use EXTERNAL_ID or sync Contacts instead");
     }
-    // EXTERNAL_ID uses SF Id stored in Stripe metadata — always present if Id check above passed
 
     return;
 }
