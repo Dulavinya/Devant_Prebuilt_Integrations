@@ -13,8 +13,8 @@ configurable string stripeApiKey = ?;
 
 // Sync Configuration
 configurable SyncDirection syncDirection = SF_TO_STRIPE;
-configurable SourceObject sourceObject = ACCOUNT;
-configurable MatchKey matchKey = EMAIL;
+configurable SourceObject sourceObject = BOTH;
+configurable MatchKey matchKey = EXTERNAL_ID;
 configurable boolean writeBackStripeId = true;
 configurable string[] recordTypeFilter = [];
 configurable string[] accountStatusFilter = [];
