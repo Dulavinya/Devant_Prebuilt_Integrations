@@ -5,7 +5,7 @@ public function bulkSyncAccountsToStripe() returns error? {
     log:printInfo("Starting bulk sync of Accounts from Salesforce to Stripe");
 
     // Build SOQL query (only include fields that exist in your Salesforce org)
-    string soqlQuery = "SELECT Id, Name, Phone, BillingStreet, BillingCity, BillingState, " +
+    string soqlQuery = "SELECT Id, Name, Email__c, Phone, BillingStreet, BillingCity, BillingState, " +
                        "BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account";
 
     // Execute query

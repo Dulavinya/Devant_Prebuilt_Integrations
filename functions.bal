@@ -154,7 +154,17 @@ public isolated function deleteStripeCustomerBySalesforceId(string salesforceId)
             map<string>? meta = c.metadata;
             if meta is map<string> && meta["salesforce_id"] == salesforceId {
                 log:printInfo("Found Stripe customer, deleting", stripeCustomerId = c.id, salesforceId = salesforceId);
-                _ = check stripeClient->/customers/[c.id].delete();
+                stripe:Deleted_customer|error deleteResult = stripeClient->/customers/[c.id].delete();
+                if deleteResult is error {
+                    // Check if it's a 404 (customer already deleted)
+                    string errorMsg = deleteResult.message();
+                    if errorMsg.includes("Not Found") || errorMsg.includes("No such customer") {
+                        log:printWarn("Stripe customer already deleted", stripeCustomerId = c.id, salesforceId = salesforceId);
+                        return;
+                    }
+                    // For other errors, propagate them
+                    return deleteResult;
+                }
                 log:printInfo("Successfully deleted Stripe customer", stripeCustomerId = c.id);
                 return;
             }
@@ -176,7 +186,17 @@ public isolated function deleteStripeCustomerBySalesforceId(string salesforceId)
 public isolated function deleteStripeCustomer(string stripeCustomerId) returns error? {
     log:printInfo("Deleting Stripe customer", stripeCustomerId = stripeCustomerId);
     
-    _ = check stripeClient->/customers/[stripeCustomerId].delete();
+    stripe:Deleted_customer|error deleteResult = stripeClient->/customers/[stripeCustomerId].delete();
+    if deleteResult is error {
+        // Check if it's a 404 (customer already deleted)
+        string errorMsg = deleteResult.message();
+        if errorMsg.includes("Not Found") || errorMsg.includes("No such customer") {
+            log:printWarn("Stripe customer already deleted", stripeCustomerId = stripeCustomerId);
+            return;
+        }
+        // For other errors, propagate them
+        return deleteResult;
+    }
     
     log:printInfo("Successfully deleted Stripe customer", stripeCustomerId = stripeCustomerId);
 }
