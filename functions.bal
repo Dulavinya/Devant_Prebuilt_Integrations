@@ -37,6 +37,21 @@ public isolated function syncAccountToStripe(SalesforceAccount account, boolean 
             }
         }
     }
+    
+    // If no Stripe ID exists, search by match key
+    if existingStripeId is () || existingStripeId == "" {
+        string? foundStripeId = check searchStripeCustomerByMatchKey(account?.Id, account?.Email__c, ());
+        if foundStripeId is string {
+            existingStripeId = foundStripeId;
+            log:printInfo("[syncAccountToStripe] Found existing Stripe customer by match key", stripeCustomerId = foundStripeId, matchKey = matchKey);
+            
+            // Write back the found Stripe ID to Salesforce
+            if writeBackStripeId {
+                string accountId = account?.Id ?: "";
+                check writeBackStripeIdToSalesforce("Account", accountId, foundStripeId);
+            }
+        }
+    }
 
     if existingStripeId is string && existingStripeId != "" {
         // Update existing customer
@@ -94,6 +109,21 @@ public isolated function syncContactToStripe(SalesforceContact contact, boolean 
             if refetchedStripeId is string && refetchedStripeId != "" {
                 log:printInfo("[syncContactToStripe] Stripe ID already exists (concurrent event), skipping", contactId = contactId, stripeCustomerId = refetchedStripeId);
                 return;
+            }
+        }
+    }
+    
+    // If no Stripe ID exists, search by match key
+    if existingStripeId is () || existingStripeId == "" {
+        string? foundStripeId = check searchStripeCustomerByMatchKey(contact?.Id, contact?.Email, ());
+        if foundStripeId is string {
+            existingStripeId = foundStripeId;
+            log:printInfo("[syncContactToStripe] Found existing Stripe customer by match key", stripeCustomerId = foundStripeId, matchKey = matchKey);
+            
+            // Write back the found Stripe ID to Salesforce
+            if writeBackStripeId {
+                string contactId = contact?.Id ?: "";
+                check writeBackStripeIdToSalesforce("Contact", contactId, foundStripeId);
             }
         }
     }
@@ -180,6 +210,69 @@ public isolated function deleteStripeCustomerBySalesforceId(string salesforceId)
     }
     
     log:printWarn("No Stripe customer found for salesforce_id, nothing to delete", salesforceId = salesforceId);
+}
+
+// Search for existing Stripe customer by match key
+isolated function searchStripeCustomerByMatchKey(string? salesforceId, string? email, string? externalId) returns string?|error {
+    if matchKey == EMAIL {
+        // Search by email
+        if email is () || email == "" {
+            log:printDebug("[searchStripeCustomerByMatchKey] No email provided, cannot search by EMAIL match key");
+            return ();
+        }
+        
+        log:printInfo("[searchStripeCustomerByMatchKey] Searching by email", email = email);
+        stripe:CustomerResourceCustomerList result = check stripeClient->/customers.get(email = email, 'limit = 1);
+        
+        if result.data.length() > 0 {
+            string foundCustomerId = result.data[0].id;
+            log:printInfo("[searchStripeCustomerByMatchKey] Found customer by email", stripeCustomerId = foundCustomerId, email = email);
+            return foundCustomerId;
+        }
+        
+        log:printInfo("[searchStripeCustomerByMatchKey] No customer found by email", email = email);
+        return ();
+    } else if matchKey == EXTERNAL_ID {
+        // Search by external ID in metadata (salesforce_id)
+        if salesforceId is () || salesforceId == "" {
+            log:printDebug("[searchStripeCustomerByMatchKey] No Salesforce ID provided, cannot search by EXTERNAL_ID match key");
+            return ();
+        }
+        
+        log:printInfo("[searchStripeCustomerByMatchKey] Searching by salesforce_id metadata", salesforceId = salesforceId);
+        
+        // Use pagination to search through customers
+        string? startingAfter = ();
+        
+        while true {
+            stripe:CustomerResourceCustomerList result;
+            if startingAfter is string {
+                result = check stripeClient->/customers.get('limit = 100, starting_after = startingAfter);
+            } else {
+                result = check stripeClient->/customers.get('limit = 100);
+            }
+            
+            foreach stripe:Customer c in result.data {
+                map<string>? meta = c.metadata;
+                if meta is map<string> && meta["salesforce_id"] == salesforceId {
+                    log:printInfo("[searchStripeCustomerByMatchKey] Found customer by salesforce_id", stripeCustomerId = c.id, salesforceId = salesforceId);
+                    return c.id;
+                }
+            }
+            
+            // Check if there are more pages
+            if result.has_more && result.data.length() > 0 {
+                startingAfter = result.data[result.data.length() - 1].id;
+            } else {
+                break;
+            }
+        }
+        
+        log:printInfo("[searchStripeCustomerByMatchKey] No customer found by salesforce_id", salesforceId = salesforceId);
+        return ();
+    }
+    
+    return ();
 }
 
 // Delete Stripe Customer
