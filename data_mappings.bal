@@ -42,7 +42,7 @@ public isolated function mapContactToStripeCustomer(SalesforceContact contact) r
     string firstName = contact?.FirstName ?: "";
     string lastName = contact?.LastName ?: "";
     string fullName = (firstName + " " + lastName).trim();
-    log:printInfo("[mapContactToStripeCustomer] Building name", firstName = firstName, lastName = lastName, fullName = fullName);
+
     if fullName != "" {
         payload["name"] = fullName;
     }

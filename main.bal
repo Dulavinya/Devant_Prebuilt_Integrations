@@ -43,7 +43,7 @@ service "/data/ChangeEvents" on changeEventListener {
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
             SalesforceAccount|error account = data.cloneWithType();
             if account is error {
-                log:printError("[onCreate] Failed to parse Account data", 'error = account, data = data.toString());
+                log:printError("[onCreate] Failed to parse Account data", 'error = account, recordId = recordId);
                 return;
             }
             error? result = syncAccountToStripe(account);
@@ -59,18 +59,18 @@ service "/data/ChangeEvents" on changeEventListener {
             record {|SalesforceContact value;|}? queryRecord = check queryResult.next();
             if queryRecord is record {|SalesforceContact value;|} {
                 contact = queryRecord.value;
-                log:printInfo("[onCreate] Fetched full Contact record", contactId = contact?.Id, firstName = contact?.FirstName, lastName = contact?.LastName);
+                log:printInfo("[onCreate] Fetched full Contact record", contactId = contact?.Id);
             } else {
                 // Fallback to CDC data if query returns nothing
                 log:printWarn("[onCreate] SOQL query returned no results, using CDC data", recordId = recordId);
                 SalesforceContact|error cdcContact = data.cloneWithType();
                 if cdcContact is error {
-                    log:printError("[onCreate] Failed to parse Contact data", 'error = cdcContact, data = data.toString());
+                    log:printError("[onCreate] Failed to parse Contact data", 'error = cdcContact, recordId = recordId);
                     return;
                 }
                 contact = cdcContact;
             }
-            log:printInfo("[onCreate] Contact parsed", contactId = contact?.Id, email = contact?.Email, firstName = contact?.FirstName, lastName = contact?.LastName);
+            log:printInfo("[onCreate] Contact parsed", contactId = contact?.Id);
             error? result = syncContactToStripe(contact);
             if result is error {
                 log:printError("[onCreate] Failed to sync Contact to Stripe", 'error = result, contactId = contact?.Id);
@@ -152,25 +152,25 @@ service "/data/ChangeEvents" on changeEventListener {
                     log:printError("[onUpdate] Failed to read query result", 'error = queryRecord, recordId = recordId);
                     SalesforceAccount|error cdcAccount = data.cloneWithType();
                     if cdcAccount is error {
-                        log:printError("[onUpdate] Failed to parse Account data", 'error = cdcAccount, data = data.toString());
+                        log:printError("[onUpdate] Failed to parse Account data", 'error = cdcAccount, recordId = recordId);
                         return;
                     }
                     account = cdcAccount;
                 } else if queryRecord is record {|SalesforceAccount value;|} {
                     account = queryRecord.value;
-                    log:printInfo("[onUpdate] Fetched full Account record", accountId = account?.Id, name = account?.Name);
+                    log:printInfo("[onUpdate] Fetched full Account record", accountId = account?.Id);
                 } else {
                     // Query returned nothing
                     log:printWarn("[onUpdate] SOQL query returned no results, using CDC data", recordId = recordId);
                     SalesforceAccount|error cdcAccount = data.cloneWithType();
                     if cdcAccount is error {
-                        log:printError("[onUpdate] Failed to parse Account data", 'error = cdcAccount, data = data.toString());
+                        log:printError("[onUpdate] Failed to parse Account data", 'error = cdcAccount, recordId = recordId);
                         return;
                     }
                     account = cdcAccount;
                 }
             }
-            log:printInfo("[onUpdate] Account parsed", accountId = account?.Id, name = account?.Name, stripeCustomerId = account?.Stripe_Customer_Id__c);
+            log:printInfo("[onUpdate] Account parsed", accountId = account?.Id, stripeCustomerId = account?.Stripe_Customer_Id__c);
             error? result = syncAccountToStripe(account, true);
             if result is error {
                 log:printError("[onUpdate] Failed to sync Account to Stripe", 'error = result, accountId = account?.Id);
@@ -194,25 +194,25 @@ service "/data/ChangeEvents" on changeEventListener {
                     log:printError("[onUpdate] Failed to read query result", 'error = queryRecord, recordId = recordId);
                     SalesforceContact|error cdcContact = data.cloneWithType();
                     if cdcContact is error {
-                        log:printError("[onUpdate] Failed to parse Contact data", 'error = cdcContact, data = data.toString());
+                        log:printError("[onUpdate] Failed to parse Contact data", 'error = cdcContact, recordId = recordId);
                         return;
                     }
                     contact = cdcContact;
                 } else if queryRecord is record {|SalesforceContact value;|} {
                     contact = queryRecord.value;
-                    log:printInfo("[onUpdate] Fetched full Contact record", contactId = contact?.Id, firstName = contact?.FirstName, lastName = contact?.LastName);
+                    log:printInfo("[onUpdate] Fetched full Contact record", contactId = contact?.Id);
                 } else {
                     // Query returned nothing
                     log:printWarn("[onUpdate] SOQL query returned no results, using CDC data", recordId = recordId);
                     SalesforceContact|error cdcContact = data.cloneWithType();
                     if cdcContact is error {
-                        log:printError("[onUpdate] Failed to parse Contact data", 'error = cdcContact, data = data.toString());
+                        log:printError("[onUpdate] Failed to parse Contact data", 'error = cdcContact, recordId = recordId);
                         return;
                     }
                     contact = cdcContact;
                 }
             }
-            log:printInfo("[onUpdate] Contact parsed", contactId = contact?.Id, email = contact?.Email, firstName = contact?.FirstName, lastName = contact?.LastName);
+            log:printInfo("[onUpdate] Contact parsed", contactId = contact?.Id);
             error? result = syncContactToStripe(contact, true);
             if result is error {
                 log:printError("[onUpdate] Failed to sync Contact to Stripe", 'error = result, contactId = contact?.Id);
@@ -225,10 +225,6 @@ service "/data/ChangeEvents" on changeEventListener {
     // Handle Delete Events
     remote function onDelete(salesforce:EventData eventData) returns error? {
         log:printInfo("Received delete event from Salesforce");
-        log:printInfo("[onDelete] RAW changedData: " + eventData.changedData.toString());
-        log:printInfo("[onDelete] RAW metadata: entityName=" + (eventData.metadata?.entityName ?: "nil")
-            + " recordId=" + (eventData.metadata?.recordId ?: "nil")
-            + " changeType=" + (eventData.metadata?.changeType ?: "nil"));
 
         // Only process if sync direction allows SF to Stripe
         if syncDirection == STRIPE_TO_SF {
