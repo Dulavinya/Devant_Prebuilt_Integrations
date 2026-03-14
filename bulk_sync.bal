@@ -70,6 +70,4 @@ public function bulkSync() returns error? {
     if sourceObject == CONTACT || sourceObject == BOTH {
         check bulkSyncContactsToStripe();
     }
-
-    log:printInfo("Bulk sync completed successfully");
 }
