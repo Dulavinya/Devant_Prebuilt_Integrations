@@ -139,35 +139,20 @@ service "/data/ChangeEvents" on changeEventListener {
             string soqlQuery = string `SELECT Id, Name, Email__c, Phone, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
             stream<SalesforceAccount, error?>|error queryResult = salesforceClient->query(soqlQuery);
             if queryResult is error {
-                log:printError("[onUpdate] SOQL query failed", 'error = queryResult, recordId = recordId);
-                SalesforceAccount|error cdcAccount = data.cloneWithType();
-                if cdcAccount is error {
-                    log:printError("[onUpdate] Failed to parse Account data", 'error = cdcAccount, data = data.toString());
-                    return;
-                }
-                account = cdcAccount;
+                log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = queryResult, recordId = recordId);
+                return;
             } else {
                 record {|SalesforceAccount value;|}|error? queryRecord = queryResult.next();
                 if queryRecord is error {
-                    log:printError("[onUpdate] Failed to read query result", 'error = queryRecord, recordId = recordId);
-                    SalesforceAccount|error cdcAccount = data.cloneWithType();
-                    if cdcAccount is error {
-                        log:printError("[onUpdate] Failed to parse Account data", 'error = cdcAccount, recordId = recordId);
-                        return;
-                    }
-                    account = cdcAccount;
+                    log:printError("[onUpdate] Failed to read query result, cannot sync without full record", 'error = queryRecord, recordId = recordId);
+                    return;
                 } else if queryRecord is record {|SalesforceAccount value;|} {
                     account = queryRecord.value;
                     log:printInfo("[onUpdate] Fetched full Account record", accountId = account?.Id);
                 } else {
-                    // Query returned nothing
-                    log:printWarn("[onUpdate] SOQL query returned no results, using CDC data", recordId = recordId);
-                    SalesforceAccount|error cdcAccount = data.cloneWithType();
-                    if cdcAccount is error {
-                        log:printError("[onUpdate] Failed to parse Account data", 'error = cdcAccount, recordId = recordId);
-                        return;
-                    }
-                    account = cdcAccount;
+                    // Query returned nothing - record may have been deleted
+                    log:printWarn("[onUpdate] SOQL query returned no results, cannot sync without full record", recordId = recordId);
+                    return;
                 }
             }
             log:printInfo("[onUpdate] Account parsed", accountId = account?.Id, stripeCustomerId = account?.Stripe_Customer_Id__c);
@@ -181,35 +166,20 @@ service "/data/ChangeEvents" on changeEventListener {
             string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
             stream<SalesforceContact, error?>|error queryResult = salesforceClient->query(soqlQuery);
             if queryResult is error {
-                log:printError("[onUpdate] SOQL query failed", 'error = queryResult, recordId = recordId);
-                SalesforceContact|error cdcContact = data.cloneWithType();
-                if cdcContact is error {
-                    log:printError("[onUpdate] Failed to parse Contact data", 'error = cdcContact, data = data.toString());
-                    return;
-                }
-                contact = cdcContact;
+                log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = queryResult, recordId = recordId);
+                return;
             } else {
                 record {|SalesforceContact value;|}|error? queryRecord = queryResult.next();
                 if queryRecord is error {
-                    log:printError("[onUpdate] Failed to read query result", 'error = queryRecord, recordId = recordId);
-                    SalesforceContact|error cdcContact = data.cloneWithType();
-                    if cdcContact is error {
-                        log:printError("[onUpdate] Failed to parse Contact data", 'error = cdcContact, recordId = recordId);
-                        return;
-                    }
-                    contact = cdcContact;
+                    log:printError("[onUpdate] Failed to read query result, cannot sync without full record", 'error = queryRecord, recordId = recordId);
+                    return;
                 } else if queryRecord is record {|SalesforceContact value;|} {
                     contact = queryRecord.value;
                     log:printInfo("[onUpdate] Fetched full Contact record", contactId = contact?.Id);
                 } else {
-                    // Query returned nothing
-                    log:printWarn("[onUpdate] SOQL query returned no results, using CDC data", recordId = recordId);
-                    SalesforceContact|error cdcContact = data.cloneWithType();
-                    if cdcContact is error {
-                        log:printError("[onUpdate] Failed to parse Contact data", 'error = cdcContact, recordId = recordId);
-                        return;
-                    }
-                    contact = cdcContact;
+                    // Query returned nothing - record may have been deleted
+                    log:printWarn("[onUpdate] SOQL query returned no results, cannot sync without full record", recordId = recordId);
+                    return;
                 }
             }
             log:printInfo("[onUpdate] Contact parsed", contactId = contact?.Id);
