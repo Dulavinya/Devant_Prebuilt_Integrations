@@ -1,7 +1,7 @@
 import ballerina/log;
 
 // Validate Salesforce Account before syncing
-public isolated function validateAccount(SalesforceAccount account) returns error? {
+public function validateAccount(SalesforceAccount account) returns error? {
     // Validate required fields
     if account?.Id is () || account?.Id == "" {
         return error("Account ID is required");
@@ -25,7 +25,7 @@ public isolated function validateAccount(SalesforceAccount account) returns erro
 }
 
 // Validate Salesforce Contact before syncing
-public isolated function validateContact(SalesforceContact contact) returns error? {
+public function validateContact(SalesforceContact contact) returns error? {
     // Validate required fields
     if contact?.Id is () || contact?.Id == "" {
         return error("Contact ID is required");
