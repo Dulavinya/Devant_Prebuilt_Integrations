@@ -2,7 +2,7 @@ import ballerina/log;
 import ballerinax/stripe;
 
 // Sync Salesforce Account to Stripe
-public isolated function syncAccountToStripe(SalesforceAccount account, boolean isUpdate = false) returns error? {
+public function syncAccountToStripe(SalesforceAccount account, boolean isUpdate = false) returns error? {
     // Validate account data
     error? validationResult = validateAccount(account);
     if validationResult is error {
@@ -76,7 +76,7 @@ public isolated function syncAccountToStripe(SalesforceAccount account, boolean 
 }
 
 // Sync Salesforce Contact to Stripe
-public isolated function syncContactToStripe(SalesforceContact contact, boolean isUpdate = false) returns error? {
+public function syncContactToStripe(SalesforceContact contact, boolean isUpdate = false) returns error? {
     // Validate contact data
     error? validationResult = validateContact(contact);
     if validationResult is error {
