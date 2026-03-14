@@ -92,7 +92,6 @@ public function syncContactToStripe(SalesforceContact contact, boolean isUpdate 
 
     // Map to Stripe customer payload
     record {} customerPayload = mapContactToStripeCustomer(contact);
-    log:printInfo("[syncContactToStripe] Raw payload from mapper", payload = customerPayload.toString());
 
     // Check if customer already exists in Stripe
     string? existingStripeId = contact?.Stripe_Customer_Id__c;
@@ -132,7 +131,6 @@ public function syncContactToStripe(SalesforceContact contact, boolean isUpdate 
         // Update existing customer
         log:printInfo("Updating existing Stripe customer", stripeCustomerId = existingStripeId);
         stripe:customers_customer_body payload = check customerPayload.cloneWithType();
-        log:printInfo("[syncContactToStripe] After cloneWithType, updating customer", payload = payload.toString());
         stripe:Customer updatedCustomer = check stripeClient->/customers/[existingStripeId].post(payload);
         log:printInfo("Successfully updated Stripe customer", stripeCustomerId = updatedCustomer.id);
     } else {
@@ -141,7 +139,6 @@ public function syncContactToStripe(SalesforceContact contact, boolean isUpdate 
         string contactId = contact?.Id ?: "";
         log:printInfo("Creating new Stripe customer with idempotency key", contactId = contactId, idempotencyKey = contactId);
         stripe:customers_body payload = check customerPayload.cloneWithType();
-        log:printInfo("[syncContactToStripe] After cloneWithType, creating new customer", payload = payload.toString());
         stripe:Customer newCustomer = check stripeClient->/customers.post(payload, {"Idempotency-Key": contactId});
         log:printInfo("Successfully created Stripe customer", stripeCustomerId = newCustomer.id);
 
