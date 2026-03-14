@@ -213,6 +213,12 @@ service "/data/ChangeEvents" on changeEventListener {
 
         log:printInfo("[onDelete] Processing delete", entityType = entityType, recordId = recordId);
 
+        // Check if delete handling is enabled
+        if !deleteStripeCustomerOnSalesforceDelete {
+            log:printInfo("[onDelete] Delete handling disabled, skipping Stripe customer deletion", recordId = recordId);
+            return;
+        }
+
         // Record is already deleted in SF — find Stripe customer by salesforce_id metadata
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
             error? result = deleteStripeCustomerBySalesforceId(recordId);
