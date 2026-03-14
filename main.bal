@@ -41,11 +41,41 @@ service "/data/ChangeEvents" on changeEventListener {
 
         // Route to appropriate handler based on entity type
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
-            SalesforceAccount|error account = data.cloneWithType();
-            if account is error {
-                log:printError("[onCreate] Failed to parse Account data", 'error = account, recordId = recordId);
-                return;
+            // Try to fetch full Account record to ensure we have all fields
+            SalesforceAccount account;
+            string soqlQueryWithEmail = string `SELECT Id, Name, Email__c, Phone, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryWithoutEmail = string `SELECT Id, Name, Phone, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
+            
+            stream<SalesforceAccount, error?>|error queryResultOrError = salesforceClient->query(soqlQueryWithEmail);
+            stream<SalesforceAccount, error?> queryResult;
+            if queryResultOrError is error {
+                string errorMsg = queryResultOrError.message();
+                if errorMsg.includes("Email__c") || errorMsg.includes("No such column") {
+                    log:printInfo("[onCreate] Email__c field not found, querying without it");
+                    queryResult = check salesforceClient->query(soqlQueryWithoutEmail);
+                } else {
+                    log:printError("[onCreate] SOQL query failed", 'error = queryResultOrError, recordId = recordId);
+                    return;
+                }
+            } else {
+                queryResult = queryResultOrError;
             }
+            
+            record {|SalesforceAccount value;|}? queryRecord = check queryResult.next();
+            if queryRecord is record {|SalesforceAccount value;|} {
+                account = queryRecord.value;
+                log:printInfo("[onCreate] Fetched full Account record", accountId = account?.Id);
+            } else {
+                // Fallback to CDC data if query returns nothing
+                log:printWarn("[onCreate] SOQL query returned no results, using CDC data", recordId = recordId);
+                SalesforceAccount|error cdcAccount = data.cloneWithType();
+                if cdcAccount is error {
+                    log:printError("[onCreate] Failed to parse Account data", 'error = cdcAccount, recordId = recordId);
+                    return;
+                }
+                account = cdcAccount;
+            }
+            
             error? result = syncAccountToStripe(account);
             if result is error {
                 log:printError("[onCreate] Failed to sync Account to Stripe", 'error = result, accountId = account?.Id);
@@ -136,24 +166,40 @@ service "/data/ChangeEvents" on changeEventListener {
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
             // CDC changedData only contains changed fields - fetch full record to get all fields including Stripe_Customer_Id__c
             SalesforceAccount account;
-            string soqlQuery = string `SELECT Id, Name, Email__c, Phone, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
-            stream<SalesforceAccount, error?>|error queryResult = salesforceClient->query(soqlQuery);
-            if queryResult is error {
-                log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = queryResult, recordId = recordId);
-                return;
-            } else {
-                record {|SalesforceAccount value;|}|error? queryRecord = queryResult.next();
-                if queryRecord is error {
-                    log:printError("[onUpdate] Failed to read query result, cannot sync without full record", 'error = queryRecord, recordId = recordId);
-                    return;
-                } else if queryRecord is record {|SalesforceAccount value;|} {
-                    account = queryRecord.value;
-                    log:printInfo("[onUpdate] Fetched full Account record", accountId = account?.Id);
+            string soqlQueryWithEmail = string `SELECT Id, Name, Email__c, Phone, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryWithoutEmail = string `SELECT Id, Name, Phone, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
+            
+            stream<SalesforceAccount, error?>|error queryResultOrError = salesforceClient->query(soqlQueryWithEmail);
+            stream<SalesforceAccount, error?> queryResult;
+            if queryResultOrError is error {
+                string errorMsg = queryResultOrError.message();
+                if errorMsg.includes("Email__c") || errorMsg.includes("No such column") {
+                    log:printInfo("[onUpdate] Email__c field not found, querying without it");
+                    stream<SalesforceAccount, error?>|error fallbackResult = salesforceClient->query(soqlQueryWithoutEmail);
+                    if fallbackResult is error {
+                        log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = fallbackResult, recordId = recordId);
+                        return;
+                    }
+                    queryResult = fallbackResult;
                 } else {
-                    // Query returned nothing - record may have been deleted
-                    log:printWarn("[onUpdate] SOQL query returned no results, cannot sync without full record", recordId = recordId);
+                    log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = queryResultOrError, recordId = recordId);
                     return;
                 }
+            } else {
+                queryResult = queryResultOrError;
+            }
+            
+            record {|SalesforceAccount value;|}|error? queryRecord = queryResult.next();
+            if queryRecord is error {
+                log:printError("[onUpdate] Failed to read query result, cannot sync without full record", 'error = queryRecord, recordId = recordId);
+                return;
+            } else if queryRecord is record {|SalesforceAccount value;|} {
+                account = queryRecord.value;
+                log:printInfo("[onUpdate] Fetched full Account record", accountId = account?.Id);
+            } else {
+                // Query returned nothing - record may have been deleted
+                log:printWarn("[onUpdate] SOQL query returned no results, cannot sync without full record", recordId = recordId);
+                return;
             }
             log:printInfo("[onUpdate] Account parsed", accountId = account?.Id, stripeCustomerId = account?.Stripe_Customer_Id__c);
             error? result = syncAccountToStripe(account, true);

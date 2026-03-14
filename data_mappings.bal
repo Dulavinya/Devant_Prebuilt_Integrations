@@ -14,7 +14,7 @@ public isolated function mapAccountToStripeCustomer(SalesforceAccount account) r
         payload["name"] = account?.Name;
     }
     
-    if account?.Email__c is string { payload["email"] = account?.Email__c; }
+    if account?.Email__c is string && account?.Email__c != "" { payload["email"] = account?.Email__c; }
     if account?.Phone is string { payload["phone"] = account?.Phone; }
     if account?.Description is string { payload["description"] = account?.Description; }
 
@@ -47,7 +47,7 @@ public isolated function mapContactToStripeCustomer(SalesforceContact contact) r
         payload["name"] = fullName;
     }
     
-    if contact?.Email is string { payload["email"] = contact?.Email; }
+    if contact?.Email is string && contact?.Email != "" { payload["email"] = contact?.Email; }
     if contact?.Phone is string { payload["phone"] = contact?.Phone; }
     if contact?.Description is string { payload["description"] = contact?.Description; }
 

@@ -4,12 +4,26 @@ import ballerina/log;
 public function bulkSyncAccountsToStripe() returns error? {
     log:printInfo("Starting bulk sync of Accounts from Salesforce to Stripe");
 
-    // Build SOQL query (only include fields that exist in your Salesforce org)
-    string soqlQuery = "SELECT Id, Name, Email__c, Phone, BillingStreet, BillingCity, BillingState, " +
-                       "BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account";
+    // Try with Email__c field first, fallback to query without it if field doesn't exist
+    string soqlQueryWithEmail = "SELECT Id, Name, Email__c, Phone, BillingStreet, BillingCity, BillingState, " +
+                                "BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account";
+    string soqlQueryWithoutEmail = "SELECT Id, Name, Phone, BillingStreet, BillingCity, BillingState, " +
+                                   "BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account";
 
-    // Execute query
-    stream<SalesforceAccount, error?> accountStream = check salesforceClient->query(soqlQuery);
+    // Execute query - try with email first, fallback if field doesn't exist
+    stream<SalesforceAccount, error?>|error accountStreamResult = salesforceClient->query(soqlQueryWithEmail);
+    stream<SalesforceAccount, error?> accountStream;
+    if accountStreamResult is error {
+        string errorMsg = accountStreamResult.message();
+        if errorMsg.includes("Email__c") || errorMsg.includes("No such column") {
+            log:printInfo("Email__c field not found, querying without it");
+            accountStream = check salesforceClient->query(soqlQueryWithoutEmail);
+        } else {
+            return accountStreamResult;
+        }
+    } else {
+        accountStream = accountStreamResult;
+    }
 
     int successCount = 0;
     int errorCount = 0;
