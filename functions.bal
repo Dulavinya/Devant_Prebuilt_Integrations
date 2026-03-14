@@ -166,44 +166,31 @@ isolated function writeBackStripeIdToSalesforce(string objectType, string record
 public isolated function deleteStripeCustomerBySalesforceId(string salesforceId) returns error? {
     log:printInfo("Looking up Stripe customer by salesforce_id", salesforceId = salesforceId);
 
-    // Use pagination to search through ALL customers
-    string? startingAfter = ();
+    // Use Stripe Search API to find customer by metadata
+    string searchQuery = string `metadata['salesforce_id']:'${salesforceId}'`;
+    stripe:SearchResult_1|error searchResult = stripeClient->/customers/search.get(query = searchQuery);
     
-    while true {
-        stripe:CustomerResourceCustomerList result;
-        if startingAfter is string {
-            result = check stripeClient->/customers.get('limit = 100, starting_after = startingAfter);
-        } else {
-            result = check stripeClient->/customers.get('limit = 100);
-        }
-        
-        foreach stripe:Customer c in result.data {
-            map<string>? meta = c.metadata;
-            if meta is map<string> && meta["salesforce_id"] == salesforceId {
-                log:printInfo("Found Stripe customer, deleting", stripeCustomerId = c.id, salesforceId = salesforceId);
-                stripe:Deleted_customer|error deleteResult = stripeClient->/customers/[c.id].delete();
-                if deleteResult is error {
-                    // Check if it's a 404 (customer already deleted)
-                    string errorMsg = deleteResult.message();
-                    if errorMsg.includes("Not Found") || errorMsg.includes("No such customer") {
-                        log:printWarn("Stripe customer already deleted", stripeCustomerId = c.id, salesforceId = salesforceId);
-                        return;
-                    }
-                    // For other errors, propagate them
-                    return deleteResult;
-                }
-                log:printInfo("Successfully deleted Stripe customer", stripeCustomerId = c.id);
+    if searchResult is error {
+        log:printError("Failed to search Stripe customers", salesforceId = salesforceId, 'error = searchResult);
+        return searchResult;
+    }
+    
+    if searchResult.data.length() > 0 {
+        stripe:Customer customer = searchResult.data[0];
+        log:printInfo("Found Stripe customer, deleting", stripeCustomerId = customer.id, salesforceId = salesforceId);
+        stripe:Deleted_customer|error deleteResult = stripeClient->/customers/[customer.id].delete();
+        if deleteResult is error {
+            // Check if it's a 404 (customer already deleted)
+            string errorMsg = deleteResult.message();
+            if errorMsg.includes("Not Found") || errorMsg.includes("No such customer") {
+                log:printWarn("Stripe customer already deleted", stripeCustomerId = customer.id, salesforceId = salesforceId);
                 return;
             }
+            // For other errors, propagate them
+            return deleteResult;
         }
-        
-        // Check if there are more pages
-        if result.has_more && result.data.length() > 0 {
-            startingAfter = result.data[result.data.length() - 1].id;
-            log:printInfo("[deleteStripeCustomerBySalesforceId] Fetching next page", startingAfter = startingAfter);
-        } else {
-            break; // No more pages
-        }
+        log:printInfo("Successfully deleted Stripe customer", stripeCustomerId = customer.id);
+        return;
     }
     
     log:printWarn("No Stripe customer found for salesforce_id, nothing to delete", salesforceId = salesforceId);
@@ -238,31 +225,19 @@ isolated function searchStripeCustomerByMatchKey(string? salesforceId, string? e
         
         log:printInfo("[searchStripeCustomerByMatchKey] Searching by salesforce_id metadata", salesforceId = salesforceId);
         
-        // Use pagination to search through customers
-        string? startingAfter = ();
+        // Use Stripe Search API to find customer by metadata
+        string searchQuery = string `metadata['salesforce_id']:'${salesforceId}'`;
+        stripe:SearchResult_1|error searchResult = stripeClient->/customers/search.get(query = searchQuery);
         
-        while true {
-            stripe:CustomerResourceCustomerList result;
-            if startingAfter is string {
-                result = check stripeClient->/customers.get('limit = 100, starting_after = startingAfter);
-            } else {
-                result = check stripeClient->/customers.get('limit = 100);
-            }
-            
-            foreach stripe:Customer c in result.data {
-                map<string>? meta = c.metadata;
-                if meta is map<string> && meta["salesforce_id"] == salesforceId {
-                    log:printInfo("[searchStripeCustomerByMatchKey] Found customer by salesforce_id", stripeCustomerId = c.id, salesforceId = salesforceId);
-                    return c.id;
-                }
-            }
-            
-            // Check if there are more pages
-            if result.has_more && result.data.length() > 0 {
-                startingAfter = result.data[result.data.length() - 1].id;
-            } else {
-                break;
-            }
+        if searchResult is error {
+            log:printError("[searchStripeCustomerByMatchKey] Failed to search Stripe customers", salesforceId = salesforceId, 'error = searchResult);
+            return searchResult;
+        }
+        
+        if searchResult.data.length() > 0 {
+            string foundCustomerId = searchResult.data[0].id;
+            log:printInfo("[searchStripeCustomerByMatchKey] Found customer by salesforce_id", stripeCustomerId = foundCustomerId, salesforceId = salesforceId);
+            return foundCustomerId;
         }
         
         log:printInfo("[searchStripeCustomerByMatchKey] No customer found by salesforce_id", salesforceId = salesforceId);
