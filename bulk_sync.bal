@@ -6,9 +6,11 @@ public function bulkSyncAccountsToStripe() returns error? {
 
     // Try with Email__c field first, fallback to query without it if field doesn't exist
     string soqlQueryWithEmail = "SELECT Id, Name, Email__c, Phone, BillingStreet, BillingCity, BillingState, " +
-                                "BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account";
+                                "BillingPostalCode, BillingCountry, ShippingStreet, ShippingCity, ShippingState, " +
+                                "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account";
     string soqlQueryWithoutEmail = "SELECT Id, Name, Phone, BillingStreet, BillingCity, BillingState, " +
-                                   "BillingPostalCode, BillingCountry, Description, Stripe_Customer_Id__c FROM Account";
+                                   "BillingPostalCode, BillingCountry, ShippingStreet, ShippingCity, ShippingState, " +
+                                   "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account";
 
     // Execute query - try with email first, fallback if field doesn't exist
     stream<SalesforceAccount, error?>|error accountStreamResult = salesforceClient->query(soqlQueryWithEmail);

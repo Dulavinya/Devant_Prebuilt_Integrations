@@ -18,13 +18,30 @@ public isolated function mapAccountToStripeCustomer(SalesforceAccount account) r
     if account?.Phone is string { payload["phone"] = account?.Phone; }
     if account?.Description is string { payload["description"] = account?.Description; }
 
-    map<json> address = {};
-    if account?.BillingStreet is string { address["line1"] = account?.BillingStreet; }
-    if account?.BillingCity is string { address["city"] = account?.BillingCity; }
-    if account?.BillingState is string { address["state"] = account?.BillingState; }
-    if account?.BillingPostalCode is string { address["postal_code"] = account?.BillingPostalCode; }
-    if account?.BillingCountry is string { address["country"] = account?.BillingCountry; }
-    if address.length() > 0 { payload["address"] = address; }
+    // Billing Address -> Stripe address field
+    map<json> billingAddress = {};
+    if account?.BillingStreet is string && account?.BillingStreet != "" { billingAddress["line1"] = account?.BillingStreet; }
+    if account?.BillingCity is string && account?.BillingCity != "" { billingAddress["city"] = account?.BillingCity; }
+    if account?.BillingState is string && account?.BillingState != "" { billingAddress["state"] = account?.BillingState; }
+    if account?.BillingPostalCode is string && account?.BillingPostalCode != "" { billingAddress["postal_code"] = account?.BillingPostalCode; }
+    if account?.BillingCountry is string && account?.BillingCountry != "" { billingAddress["country"] = account?.BillingCountry; }
+    if billingAddress.length() > 0 { payload["address"] = billingAddress; }
+
+    // Shipping Address -> Stripe shipping.address field
+    map<json> shippingAddress = {};
+    if account?.ShippingStreet is string && account?.ShippingStreet != "" { shippingAddress["line1"] = account?.ShippingStreet; }
+    if account?.ShippingCity is string && account?.ShippingCity != "" { shippingAddress["city"] = account?.ShippingCity; }
+    if account?.ShippingState is string && account?.ShippingState != "" { shippingAddress["state"] = account?.ShippingState; }
+    if account?.ShippingPostalCode is string && account?.ShippingPostalCode != "" { shippingAddress["postal_code"] = account?.ShippingPostalCode; }
+    if account?.ShippingCountry is string && account?.ShippingCountry != "" { shippingAddress["country"] = account?.ShippingCountry; }
+    if shippingAddress.length() > 0 {
+        map<json> shipping = {"address": shippingAddress};
+        // Add name to shipping if available
+        if account?.Name is string && account?.Name != "" {
+            shipping["name"] = account?.Name;
+        }
+        payload["shipping"] = shipping;
+    }
 
     return payload;
 }
