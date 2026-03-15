@@ -49,7 +49,8 @@ public function bulkSyncContactsToStripe() returns error? {
 
     // Build SOQL query
     string soqlQuery = "SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, " +
-                       "MailingState, MailingPostalCode, MailingCountry, Description, " +
+                       "MailingState, MailingPostalCode, MailingCountry, OtherStreet, OtherCity, " +
+                       "OtherState, OtherPostalCode, OtherCountry, Description, " +
                        "Stripe_Customer_Id__c, RecordTypeId FROM Contact";
 
     // Execute query

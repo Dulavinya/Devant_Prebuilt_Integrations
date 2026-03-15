@@ -48,6 +48,11 @@ public type SalesforceContact record {|
     string? MailingState?;
     string? MailingPostalCode?;
     string? MailingCountry?;
+    string? OtherStreet?;
+    string? OtherCity?;
+    string? OtherState?;
+    string? OtherPostalCode?;
+    string? OtherCountry?;
     string? Description?;
     string? Stripe_Customer_Id__c?;
     string? RecordTypeId?;

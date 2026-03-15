@@ -84,7 +84,7 @@ service "/data/ChangeEvents" on changeEventListener {
             // CDC changedData may not include FirstName/LastName on create (only Name)
             // Fetch full record to ensure we have all fields
             SalesforceContact contact;
-            string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
+            string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, OtherStreet, OtherCity, OtherState, OtherPostalCode, OtherCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
             stream<SalesforceContact, error?> queryResult = check salesforceClient->query(soqlQuery);
             record {|SalesforceContact value;|}? queryRecord = check queryResult.next();
             if queryRecord is record {|SalesforceContact value;|} {
@@ -209,7 +209,7 @@ service "/data/ChangeEvents" on changeEventListener {
         } else if entityType == "Contact" && (sourceObject == CONTACT || sourceObject == BOTH) {
             // CDC changedData only contains changed fields - fetch full record to get FirstName/LastName
             SalesforceContact contact;
-            string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
+            string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, OtherStreet, OtherCity, OtherState, OtherPostalCode, OtherCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
             stream<SalesforceContact, error?>|error queryResult = salesforceClient->query(soqlQuery);
             if queryResult is error {
                 log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = queryResult, recordId = recordId);
