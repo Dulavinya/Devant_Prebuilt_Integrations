@@ -21,6 +21,13 @@ This integration listens for Salesforce Account and Contact creation, update, an
   - Refresh URL
   - Base URL (your Salesforce instance URL)
 3. Change Data Capture must be enabled for the **Account** and **Contact** objects
+
+3. **Create Custom Field** `Stripe_Customer_Id__c` (Text, 255 chars):
+   - On Account object
+   - On Contact object
+
+Optional: To sync account emails to Stripe, create a custom field `Email__c` (Email, 255 chars) on the Account object.
+
 This integration uses refresh token flow for auth. [Learn how to set up Salesforce OAuth](https://help.salesforce.com/s/articleView?id=xcloud.create_a_local_external_client_app.htm&type=5).
 </details>
 
