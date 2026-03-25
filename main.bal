@@ -43,8 +43,8 @@ service "/data/ChangeEvents" on changeEventListener {
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
             // Try to fetch full Account record to ensure we have all fields
             SalesforceAccount account;
-            string soqlQueryWithEmail = string `SELECT Id, Name, Email__c, Phone, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
-            string soqlQueryWithoutEmail = string `SELECT Id, Name, Phone, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryWithEmail = string `SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryWithoutEmail = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
             
             stream<SalesforceAccount, error?>|error queryResultOrError = salesforceClient->query(soqlQueryWithEmail);
             stream<SalesforceAccount, error?> queryResult;
@@ -84,7 +84,7 @@ service "/data/ChangeEvents" on changeEventListener {
             // CDC changedData may not include FirstName/LastName on create (only Name)
             // Fetch full record to ensure we have all fields
             SalesforceContact contact;
-            string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, OtherStreet, OtherCity, OtherState, OtherPostalCode, OtherCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
+            string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
             stream<SalesforceContact, error?> queryResult = check salesforceClient->query(soqlQuery);
             record {|SalesforceContact value;|}? queryRecord = check queryResult.next();
             if queryRecord is record {|SalesforceContact value;|} {
@@ -166,8 +166,8 @@ service "/data/ChangeEvents" on changeEventListener {
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
             // CDC changedData only contains changed fields - fetch full record to get all fields including Stripe_Customer_Id__c
             SalesforceAccount account;
-            string soqlQueryWithEmail = string `SELECT Id, Name, Email__c, Phone, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
-            string soqlQueryWithoutEmail = string `SELECT Id, Name, Phone, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryWithEmail = string `SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryWithoutEmail = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
             
             stream<SalesforceAccount, error?>|error queryResultOrError = salesforceClient->query(soqlQueryWithEmail);
             stream<SalesforceAccount, error?> queryResult;
@@ -209,7 +209,7 @@ service "/data/ChangeEvents" on changeEventListener {
         } else if entityType == "Contact" && (sourceObject == CONTACT || sourceObject == BOTH) {
             // CDC changedData only contains changed fields - fetch full record to get FirstName/LastName
             SalesforceContact contact;
-            string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, OtherStreet, OtherCity, OtherState, OtherPostalCode, OtherCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
+            string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
             stream<SalesforceContact, error?>|error queryResult = salesforceClient->query(soqlQuery);
             if queryResult is error {
                 log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = queryResult, recordId = recordId);

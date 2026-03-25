@@ -5,11 +5,9 @@ public function bulkSyncAccountsToStripe() returns error? {
     log:printInfo("Starting bulk sync of Accounts from Salesforce to Stripe");
 
     // Try with Email__c field first, fallback to query without it if field doesn't exist
-    string soqlQueryWithEmail = "SELECT Id, Name, Email__c, Phone, BillingStreet, BillingCity, BillingState, " +
-                                "BillingPostalCode, BillingCountry, ShippingStreet, ShippingCity, ShippingState, " +
+    string soqlQueryWithEmail = "SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, " +
                                 "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account";
-    string soqlQueryWithoutEmail = "SELECT Id, Name, Phone, BillingStreet, BillingCity, BillingState, " +
-                                   "BillingPostalCode, BillingCountry, ShippingStreet, ShippingCity, ShippingState, " +
+    string soqlQueryWithoutEmail = "SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, " +
                                    "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account";
 
     // Execute query - try with email first, fallback if field doesn't exist
@@ -51,8 +49,7 @@ public function bulkSyncContactsToStripe() returns error? {
 
     // Build SOQL query
     string soqlQuery = "SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, " +
-                       "MailingState, MailingPostalCode, MailingCountry, OtherStreet, OtherCity, " +
-                       "OtherState, OtherPostalCode, OtherCountry, Description, " +
+                       "MailingState, MailingPostalCode, MailingCountry, Description, " +
                        "Stripe_Customer_Id__c, RecordTypeId FROM Contact";
 
     // Execute query
