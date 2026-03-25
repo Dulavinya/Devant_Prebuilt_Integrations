@@ -122,7 +122,7 @@ public isolated function mapContactToStripeCustomer(SalesforceContact contact) r
 }
 
 // Check if record passes filters
-public function passesFilters(string? recordTypeId, string? accountStatus) returns boolean {
+public function passFilters(string? recordTypeId, string? accountStatus) returns boolean {
     // Check RecordType filter
     if recordTypeFilter.length() > 0 {
         if recordTypeId is () {

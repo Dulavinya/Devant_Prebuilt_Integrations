@@ -11,7 +11,7 @@ public function syncAccountToStripe(SalesforceAccount account, boolean isUpdate 
     }
 
     // Check if record passes filters
-    if !passesFilters(account?.RecordTypeId, account?.AccountStatus__c) {
+    if !passFilters(account?.RecordTypeId, account?.AccountStatus__c) {
         log:printInfo("Account filtered out, skipping sync", accountId = account?.Id);
         return;
     }
@@ -85,7 +85,7 @@ public function syncContactToStripe(SalesforceContact contact, boolean isUpdate 
     }
 
     // Check if record passes filters (only RecordType for contacts)
-    if !passesFilters(contact?.RecordTypeId, ()) {
+    if !passFilters(contact?.RecordTypeId, ()) {
         log:printInfo("Contact filtered out, skipping sync", contactId = contact?.Id);
         return;
     }
