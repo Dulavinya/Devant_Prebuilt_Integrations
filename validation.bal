@@ -18,7 +18,7 @@ public function validateAccount(SalesforceAccount account) returns error? {
             log:printWarn("Account has no email, will create new customer without email-based matching", accountId = account?.Id);
         }
     }
-    // EXTERNAL_ID uses SF Id stored in Stripe metadata — always present if Id check above passed
+    // SALESFORCE_ID uses SF Id stored in Stripe metadata — always present if Id check above passed
 
     return;
 }
@@ -41,7 +41,7 @@ public function validateContact(SalesforceContact contact) returns error? {
             log:printWarn("Contact has no email, will create new customer without email-based matching", contactId = contact?.Id);
         }
     }
-    // EXTERNAL_ID uses SF Id stored in Stripe metadata — always present if Id check above passed
+    // SALESFORCE_ID uses SF Id stored in Stripe metadata — always present if Id check above passed
 
     return;
 }

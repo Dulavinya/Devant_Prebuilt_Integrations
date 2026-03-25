@@ -216,10 +216,10 @@ isolated function searchStripeCustomerByMatchKey(string? salesforceId, string? e
         
         log:printInfo("[searchStripeCustomerByMatchKey] No customer found by email", email = email);
         return ();
-    } else if matchKey == EXTERNAL_ID {
-        // Search by external ID in metadata (salesforce_id)
+    } else if matchKey == SALESFORCE_ID {
+        // Search by Salesforce ID in metadata (salesforce_id)
         if salesforceId is () || salesforceId == "" {
-            log:printDebug("[searchStripeCustomerByMatchKey] No Salesforce ID provided, cannot search by EXTERNAL_ID match key");
+            log:printDebug("[searchStripeCustomerByMatchKey] No Salesforce ID provided, cannot search by SALESFORCE_ID match key");
             return ();
         }
         

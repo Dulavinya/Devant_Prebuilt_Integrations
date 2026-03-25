@@ -15,7 +15,7 @@ public enum SourceObject {
 // Match Key Enum
 public enum MatchKey {
     EMAIL,
-    EXTERNAL_ID
+    SALESFORCE_ID
 }
 
 // Salesforce Account Record
