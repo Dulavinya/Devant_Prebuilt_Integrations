@@ -40,18 +40,6 @@ public isolated function mapAccountToStripeCustomer(SalesforceAccount account) r
     putIfNonEmpty(payload, "phone", account?.Phone);
     putIfNonEmpty(payload, "description", account?.Description);
 
-    // Billing Address -> Stripe address field
-    map<json>? billingAddress = buildAddress(
-        account?.BillingStreet,
-        account?.BillingCity,
-        account?.BillingState,
-        account?.BillingPostalCode,
-        account?.BillingCountry
-    );
-    if billingAddress is map<json> {
-        payload["address"] = billingAddress;
-    }
-
     // Shipping Address -> Stripe shipping.address field
     map<json>? shippingAddress = buildAddress(
         account?.ShippingStreet,
@@ -90,25 +78,13 @@ public isolated function mapContactToStripeCustomer(SalesforceContact contact) r
     putIfNonEmpty(payload, "phone", contact?.Phone);
     putIfNonEmpty(payload, "description", contact?.Description);
 
-    // Mailing Address -> Billing Address (address)
-    map<json>? billingAddress = buildAddress(
+    // Mailing Address -> Shipping Address (shipping.address)
+    map<json>? shippingAddress = buildAddress(
         contact?.MailingStreet,
         contact?.MailingCity,
         contact?.MailingState,
         contact?.MailingPostalCode,
         contact?.MailingCountry
-    );
-    if billingAddress is map<json> {
-        payload["address"] = billingAddress;
-    }
-
-    // Other Address -> Shipping Address (shipping.address)
-    map<json>? shippingAddress = buildAddress(
-        contact?.OtherStreet,
-        contact?.OtherCity,
-        contact?.OtherState,
-        contact?.OtherPostalCode,
-        contact?.OtherCountry
     );
     if shippingAddress is map<json> {
         map<json> shipping = {
