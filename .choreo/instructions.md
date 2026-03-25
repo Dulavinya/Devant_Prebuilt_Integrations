@@ -28,6 +28,8 @@ This integration listens for Salesforce Account and Contact creation, update, an
 
 Optional: To sync account emails to Stripe, create a custom field `Email__c` (Email, 255 chars) on the Account object.
 
+ (Optional) Create a custom field `AccountStatus__c` on Account object to use the accountStatusFilter configuration
+
 This integration uses refresh token flow for auth. [Learn how to set up Salesforce OAuth](https://help.salesforce.com/s/articleView?id=xcloud.create_a_local_external_client_app.htm&type=5).
 </details>
 
@@ -49,9 +51,9 @@ This integration uses refresh token flow for auth. [Learn how to set up Salesfor
      - `BOTH`: Sync both Accounts and Contacts
 
 2. **matchKey** (Default: EMAIL)
-   - Possible values:
-     - `EMAIL`: Match customers by email address
-     - `EXTERNAL_ID`: Match customers by external ID field
+    - Possible values:
+      - `EMAIL`: Match customers by email address
+      - `SALESFORCE_ID`: Uses the Salesforce record Id
 
 3. **writeBackStripeId** (Default: true)
    - Write the Stripe customer ID back to the Salesforce `Stripe_Customer_Id__c` field

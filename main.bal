@@ -43,16 +43,43 @@ service "/data/ChangeEvents" on changeEventListener {
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
             // Try to fetch full Account record to ensure we have all fields
             SalesforceAccount account;
-            string soqlQueryWithEmail = string `SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
-            string soqlQueryWithoutEmail = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryFull = string `SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId, AccountStatus__c FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryNoEmail = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId, AccountStatus__c FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryNoStatus = string `SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryMinimal = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId FROM Account WHERE Id = '${recordId}'`;
             
-            stream<SalesforceAccount, error?>|error queryResultOrError = salesforceClient->query(soqlQueryWithEmail);
+            stream<SalesforceAccount, error?>|error queryResultOrError = salesforceClient->query(soqlQueryFull);
             stream<SalesforceAccount, error?> queryResult;
             if queryResultOrError is error {
                 string errorMsg = queryResultOrError.message();
-                if errorMsg.includes("Email__c") || errorMsg.includes("No such column") {
+                if errorMsg.includes("Email__c") {
                     log:printInfo("[onCreate] Email__c field not found, querying without it");
-                    queryResult = check salesforceClient->query(soqlQueryWithoutEmail);
+                    stream<SalesforceAccount, error?>|error fallbackResult = salesforceClient->query(soqlQueryNoEmail);
+                    if fallbackResult is error {
+                        log:printError("[onCreate] SOQL query failed", 'error = fallbackResult, recordId = recordId);
+                        return;
+                    }
+                    queryResult = fallbackResult;
+                } else if errorMsg.includes("AccountStatus__c") {
+                    log:printInfo("[onCreate] AccountStatus__c field not found, querying without it");
+                    stream<SalesforceAccount, error?>|error fallbackResult = salesforceClient->query(soqlQueryNoStatus);
+                    if fallbackResult is error {
+                        string fallbackErrorMsg = fallbackResult.message();
+                        if fallbackErrorMsg.includes("Email__c") {
+                            log:printInfo("[onCreate] Email__c also not found, using minimal query");
+                            stream<SalesforceAccount, error?>|error minimalResult = salesforceClient->query(soqlQueryMinimal);
+                            if minimalResult is error {
+                                log:printError("[onCreate] SOQL query failed", 'error = minimalResult, recordId = recordId);
+                                return;
+                            }
+                            queryResult = minimalResult;
+                        } else {
+                            log:printError("[onCreate] SOQL query failed", 'error = fallbackResult, recordId = recordId);
+                            return;
+                        }
+                    } else {
+                        queryResult = fallbackResult;
+                    }
                 } else {
                     log:printError("[onCreate] SOQL query failed", 'error = queryResultOrError, recordId = recordId);
                     return;
@@ -166,21 +193,43 @@ service "/data/ChangeEvents" on changeEventListener {
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
             // CDC changedData only contains changed fields - fetch full record to get all fields including Stripe_Customer_Id__c
             SalesforceAccount account;
-            string soqlQueryWithEmail = string `SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
-            string soqlQueryWithoutEmail = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryFull = string `SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId, AccountStatus__c FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryNoEmail = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId, AccountStatus__c FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryNoStatus = string `SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId FROM Account WHERE Id = '${recordId}'`;
+            string soqlQueryMinimal = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId FROM Account WHERE Id = '${recordId}'`;
             
-            stream<SalesforceAccount, error?>|error queryResultOrError = salesforceClient->query(soqlQueryWithEmail);
+            stream<SalesforceAccount, error?>|error queryResultOrError = salesforceClient->query(soqlQueryFull);
             stream<SalesforceAccount, error?> queryResult;
             if queryResultOrError is error {
                 string errorMsg = queryResultOrError.message();
-                if errorMsg.includes("Email__c") || errorMsg.includes("No such column") {
+                if errorMsg.includes("Email__c") {
                     log:printInfo("[onUpdate] Email__c field not found, querying without it");
-                    stream<SalesforceAccount, error?>|error fallbackResult = salesforceClient->query(soqlQueryWithoutEmail);
+                    stream<SalesforceAccount, error?>|error fallbackResult = salesforceClient->query(soqlQueryNoEmail);
                     if fallbackResult is error {
                         log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = fallbackResult, recordId = recordId);
                         return;
                     }
                     queryResult = fallbackResult;
+                } else if errorMsg.includes("AccountStatus__c") {
+                    log:printInfo("[onUpdate] AccountStatus__c field not found, querying without it");
+                    stream<SalesforceAccount, error?>|error fallbackResult = salesforceClient->query(soqlQueryNoStatus);
+                    if fallbackResult is error {
+                        string fallbackErrorMsg = fallbackResult.message();
+                        if fallbackErrorMsg.includes("Email__c") {
+                            log:printInfo("[onUpdate] Email__c also not found, using minimal query");
+                            stream<SalesforceAccount, error?>|error minimalResult = salesforceClient->query(soqlQueryMinimal);
+                            if minimalResult is error {
+                                log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = minimalResult, recordId = recordId);
+                                return;
+                            }
+                            queryResult = minimalResult;
+                        } else {
+                            log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = fallbackResult, recordId = recordId);
+                            return;
+                        }
+                    } else {
+                        queryResult = fallbackResult;
+                    }
                 } else {
                     log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = queryResultOrError, recordId = recordId);
                     return;
