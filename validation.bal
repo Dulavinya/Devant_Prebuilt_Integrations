@@ -46,20 +46,8 @@ public function validateContact(SalesforceContact contact) returns error? {
     return;
 }
 
-// Basic email validation
+// Email validation using regex pattern
 isolated function isValidEmail(string email) returns boolean {
-    // Simple email validation - contains @ and has characters before and after
-    int? atIndex = email.indexOf("@");
-    if atIndex is () || atIndex <= 0 || atIndex >= email.length() - 1 {
-        return false;
-    }
-    
-    // Check for dot after @
-    string domain = email.substring(atIndex + 1);
-    int? dotIndex = domain.indexOf(".");
-    if dotIndex is () || dotIndex <= 0 || dotIndex >= domain.length() - 1 {
-        return false;
-    }
-    
-    return true;
+    string:RegExp emailPattern = re `^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$`;
+    return emailPattern.isFullMatch(email);
 }
