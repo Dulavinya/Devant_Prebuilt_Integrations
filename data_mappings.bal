@@ -10,34 +10,34 @@ public isolated function mapAccountToStripeCustomer(SalesforceAccount account) r
     };
     
     // Only include name if it's not empty
-    if account?.Name is string && account?.Name != "" {
+    if account?.Name !is "" {
         payload["name"] = account?.Name;
     }
     
-    if account?.Email__c is string && account?.Email__c != "" { payload["email"] = account?.Email__c; }
-    if account?.Phone is string { payload["phone"] = account?.Phone; }
-    if account?.Description is string { payload["description"] = account?.Description; }
+    if account?.Email__c !is "" { payload["email"] = account?.Email__c; }
+    if account?.Phone !is () { payload["phone"] = account?.Phone; }
+    if account?.Description !is () { payload["description"] = account?.Description; }
 
     // Billing Address -> Stripe address field
     map<json> billingAddress = {};
-    if account?.BillingStreet is string && account?.BillingStreet != "" { billingAddress["line1"] = account?.BillingStreet; }
-    if account?.BillingCity is string && account?.BillingCity != "" { billingAddress["city"] = account?.BillingCity; }
-    if account?.BillingState is string && account?.BillingState != "" { billingAddress["state"] = account?.BillingState; }
-    if account?.BillingPostalCode is string && account?.BillingPostalCode != "" { billingAddress["postal_code"] = account?.BillingPostalCode; }
-    if account?.BillingCountry is string && account?.BillingCountry != "" { billingAddress["country"] = account?.BillingCountry; }
+    if account?.BillingStreet !is "" { billingAddress["line1"] = account?.BillingStreet; }
+    if account?.BillingCity !is "" { billingAddress["city"] = account?.BillingCity; }
+    if account?.BillingState !is "" { billingAddress["state"] = account?.BillingState; }
+    if account?.BillingPostalCode !is "" { billingAddress["postal_code"] = account?.BillingPostalCode; }
+    if account?.BillingCountry !is "" { billingAddress["country"] = account?.BillingCountry; }
     if billingAddress.length() > 0 { payload["address"] = billingAddress; }
 
     // Shipping Address -> Stripe shipping.address field
     map<json> shippingAddress = {};
-    if account?.ShippingStreet is string && account?.ShippingStreet != "" { shippingAddress["line1"] = account?.ShippingStreet; }
-    if account?.ShippingCity is string && account?.ShippingCity != "" { shippingAddress["city"] = account?.ShippingCity; }
-    if account?.ShippingState is string && account?.ShippingState != "" { shippingAddress["state"] = account?.ShippingState; }
-    if account?.ShippingPostalCode is string && account?.ShippingPostalCode != "" { shippingAddress["postal_code"] = account?.ShippingPostalCode; }
-    if account?.ShippingCountry is string && account?.ShippingCountry != "" { shippingAddress["country"] = account?.ShippingCountry; }
+    if account?.ShippingStreet !is "" { shippingAddress["line1"] = account?.ShippingStreet; }
+    if account?.ShippingCity !is "" { shippingAddress["city"] = account?.ShippingCity; }
+    if account?.ShippingState !is "" { shippingAddress["state"] = account?.ShippingState; }
+    if account?.ShippingPostalCode !is "" { shippingAddress["postal_code"] = account?.ShippingPostalCode; }
+    if account?.ShippingCountry !is "" { shippingAddress["country"] = account?.ShippingCountry; }
     if shippingAddress.length() > 0 {
         map<json> shipping = {"address": shippingAddress};
         // Add name to shipping if available
-        if account?.Name is string && account?.Name != "" {
+        if account?.Name !is "" {
             shipping["name"] = account?.Name;
         }
         payload["shipping"] = shipping;
@@ -64,26 +64,26 @@ public isolated function mapContactToStripeCustomer(SalesforceContact contact) r
         payload["name"] = fullName;
     }
     
-    if contact?.Email is string && contact?.Email != "" { payload["email"] = contact?.Email; }
-    if contact?.Phone is string && contact?.Phone != "" { payload["phone"] = contact?.Phone; }
-    if contact?.Description is string { payload["description"] = contact?.Description; }
+    if contact?.Email !is "" { payload["email"] = contact?.Email; }
+    if contact?.Phone !is "" { payload["phone"] = contact?.Phone; }
+    if contact?.Description !is () { payload["description"] = contact?.Description; }
 
     // Mailing Address -> Billing Address (address)
     map<json> billingAddress = {};
-    if contact?.MailingStreet is string && contact?.MailingStreet != "" { billingAddress["line1"] = contact?.MailingStreet; }
-    if contact?.MailingCity is string && contact?.MailingCity != "" { billingAddress["city"] = contact?.MailingCity; }
-    if contact?.MailingState is string && contact?.MailingState != "" { billingAddress["state"] = contact?.MailingState; }
-    if contact?.MailingPostalCode is string && contact?.MailingPostalCode != "" { billingAddress["postal_code"] = contact?.MailingPostalCode; }
-    if contact?.MailingCountry is string && contact?.MailingCountry != "" { billingAddress["country"] = contact?.MailingCountry; }
+    if contact?.MailingStreet !is "" { billingAddress["line1"] = contact?.MailingStreet; }
+    if contact?.MailingCity !is "" { billingAddress["city"] = contact?.MailingCity; }
+    if contact?.MailingState !is "" { billingAddress["state"] = contact?.MailingState; }
+    if contact?.MailingPostalCode !is "" { billingAddress["postal_code"] = contact?.MailingPostalCode; }
+    if contact?.MailingCountry !is "" { billingAddress["country"] = contact?.MailingCountry; }
     if billingAddress.length() > 0 { payload["address"] = billingAddress; }
 
     // Other Address -> Shipping Address (shipping.address)
     map<json> shippingAddress = {};
-    if contact?.OtherStreet is string && contact?.OtherStreet != "" { shippingAddress["line1"] = contact?.OtherStreet; }
-    if contact?.OtherCity is string && contact?.OtherCity != "" { shippingAddress["city"] = contact?.OtherCity; }
-    if contact?.OtherState is string && contact?.OtherState != "" { shippingAddress["state"] = contact?.OtherState; }
-    if contact?.OtherPostalCode is string && contact?.OtherPostalCode != "" { shippingAddress["postal_code"] = contact?.OtherPostalCode; }
-    if contact?.OtherCountry is string && contact?.OtherCountry != "" { shippingAddress["country"] = contact?.OtherCountry; }
+    if contact?.OtherStreet !is "" { shippingAddress["line1"] = contact?.OtherStreet; }
+    if contact?.OtherCity !is "" { shippingAddress["city"] = contact?.OtherCity; }
+    if contact?.OtherState !is "" { shippingAddress["state"] = contact?.OtherState; }
+    if contact?.OtherPostalCode !is "" { shippingAddress["postal_code"] = contact?.OtherPostalCode; }
+    if contact?.OtherCountry !is "" { shippingAddress["country"] = contact?.OtherCountry; }
     if shippingAddress.length() > 0 {
         map<json> shipping = {"address": shippingAddress};
         // Add name to shipping if available
