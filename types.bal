@@ -50,7 +50,6 @@ public type SalesforceContact record {|
     string? MailingCountry;
     string? Description;
     string? Stripe_Customer_Id__c;
-    string? RecordTypeId;
     anydata...;
 |};
 

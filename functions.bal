@@ -84,8 +84,8 @@ public function syncContactToStripe(SalesforceContact contact, boolean isUpdate 
         return validationResult;
     }
 
-    // Check if record passes filters (only RecordType for contacts)
-    if !passFilters(contact?.RecordTypeId, ()) {
+    // Check if record passes filters (Contact doesn't have RecordType, only Account does)
+    if !passFilters((), ()) {
         log:printInfo("Contact filtered out, skipping sync", contactId = contact?.Id);
         return;
     }
@@ -101,13 +101,15 @@ public function syncContactToStripe(SalesforceContact contact, boolean isUpdate 
     if !isUpdate && (existingStripeId is () || existingStripeId == "") {
         string contactId = contact?.Id ?: "";
         string soqlQuery = string `SELECT Stripe_Customer_Id__c FROM Contact WHERE Id = '${contactId}'`;
-        stream<SalesforceContact, error?> queryResult = check salesforceClient->query(soqlQuery);
-        record {|SalesforceContact value;|}? queryRecord = check queryResult.next();
-        if queryRecord is record {|SalesforceContact value;|} {
-            string? refetchedStripeId = queryRecord.value?.Stripe_Customer_Id__c;
-            if refetchedStripeId is string && refetchedStripeId != "" {
-                log:printInfo("[syncContactToStripe] Stripe ID already exists (concurrent event), skipping", contactId = contactId, stripeCustomerId = refetchedStripeId);
-                return;
+        stream<map<anydata>, error?>|error queryResultOrError = salesforceClient->query(soqlQuery);
+        if queryResultOrError !is error {
+            record {|map<anydata> value;|}?|error nextOrError = queryResultOrError.next();
+            if nextOrError !is error && nextOrError is record {|map<anydata> value;|} {
+                anydata refetchedStripeIdAny = nextOrError.value["Stripe_Customer_Id__c"];
+                if refetchedStripeIdAny is string && refetchedStripeIdAny != "" {
+                    log:printInfo("[syncContactToStripe] Stripe ID already exists (concurrent event), skipping", contactId = contactId, stripeCustomerId = refetchedStripeIdAny);
+                    return;
+                }
             }
         }
     }

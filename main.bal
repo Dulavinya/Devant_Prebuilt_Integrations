@@ -112,8 +112,23 @@ service "/data/ChangeEvents" on changeEventListener {
             // Fetch full record to ensure we have all fields
             SalesforceContact contact;
             string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
-            stream<SalesforceContact, error?> queryResult = check salesforceClient->query(soqlQuery);
-            record {|SalesforceContact value;|}? queryRecord = check queryResult.next();
+            stream<SalesforceContact, error?>|error queryResultOrError = salesforceClient->query(soqlQuery);
+            stream<SalesforceContact, error?> queryResult;
+            
+            if queryResultOrError is error {
+                log:printError("[onCreate] SOQL query failed for Contact", 'error = queryResultOrError, recordId = recordId);
+                return;
+            } else {
+                queryResult = queryResultOrError;
+            }
+            
+            record {|SalesforceContact value;|}?|error nextRecord = queryResult.next();
+            if nextRecord is error {
+                log:printError("[onCreate] Failed to read Contact query result", 'error = nextRecord, recordId = recordId);
+                return;
+            }
+            
+            record {|SalesforceContact value;|}? queryRecord = nextRecord;
             if queryRecord is record {|SalesforceContact value;|} {
                 contact = queryRecord.value;
                 log:printInfo("[onCreate] Fetched full Contact record", contactId = contact?.Id);
