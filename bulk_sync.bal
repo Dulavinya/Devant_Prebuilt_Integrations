@@ -4,9 +4,16 @@ import ballerina/log;
 public function bulkSyncAccountsToStripe() returns error? {
     log:printInfo("Starting bulk sync of Accounts from Salesforce to Stripe");
 
-    // Query all Account fields (optional filter fields not queried if they don't exist in org)
-    string soqlQuery = "SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, " +
-                       "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account";
+    // Query all Account fields (optional filter fields queried only if filters are configured)
+    string soqlQuery = "SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, " +
+                       "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c";
+    if recordTypeFilter.length() > 0 {
+        soqlQuery += ", RecordTypeId";
+    }
+    if accountStatusFilter.length() > 0 {
+        soqlQuery += ", AccountStatus__c";
+    }
+    soqlQuery += " FROM Account";
 
     // Execute query with flexible map type to handle optional custom fields
     stream<map<anydata>, error?> accountStream = check salesforceClient->query(soqlQuery);
@@ -20,7 +27,6 @@ public function bulkSyncAccountsToStripe() returns error? {
             SalesforceAccount account = {
                 Id: <string?>(accountData["Id"]),
                 Name: <string?>(accountData["Name"]),
-                Email__c: <string?>(accountData["Email__c"]),
                 Phone: <string?>(accountData["Phone"]),
                 ShippingStreet: <string?>(accountData["ShippingStreet"]),
                 ShippingCity: <string?>(accountData["ShippingCity"]),
@@ -28,7 +34,9 @@ public function bulkSyncAccountsToStripe() returns error? {
                 ShippingPostalCode: <string?>(accountData["ShippingPostalCode"]),
                 ShippingCountry: <string?>(accountData["ShippingCountry"]),
                 Description: <string?>(accountData["Description"]),
-                Stripe_Customer_Id__c: <string?>(accountData["Stripe_Customer_Id__c"])
+                Stripe_Customer_Id__c: <string?>(accountData["Stripe_Customer_Id__c"]),
+                "RecordTypeId": accountData["RecordTypeId"],
+                "AccountStatus__c": accountData["AccountStatus__c"]
             };
             error? result = syncAccountToStripe(account);
             if result is error {

@@ -24,12 +24,6 @@ service "/data/ChangeEvents" on changeEventListener {
     remote function onCreate(salesforce:EventData eventData) returns error? {
         log:printInfo("Received create event from Salesforce");
 
-        // Only process if sync direction allows SF to Stripe
-        if syncDirection == STRIPE_TO_SF {
-            log:printInfo("Sync direction is Stripe to SF, skipping create event");
-            return;
-        }
-
         // Determine object type from event metadata
         string entityType = eventData.metadata?.entityName ?: "";
         log:printInfo("[onCreate] entityType=" + entityType + " sourceObject=" + sourceObject);
@@ -44,7 +38,15 @@ service "/data/ChangeEvents" on changeEventListener {
             // Try to fetch full Account record to ensure we have all fields
             SalesforceAccount account;
             // Query with flexible map type to handle optional custom fields
-            string soqlQuery = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, Email__c FROM Account WHERE Id = '${recordId}'`;
+            // Include RecordTypeId and AccountStatus__c if filters are configured
+            string soqlQuery = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c`;
+            if recordTypeFilter.length() > 0 {
+                soqlQuery += ", RecordTypeId";
+            }
+            if accountStatusFilter.length() > 0 {
+                soqlQuery += ", AccountStatus__c";
+            }
+            soqlQuery += string ` FROM Account WHERE Id = '${recordId}'`;
             
             stream<map<anydata>, error?>|error queryResultOrError = salesforceClient->query(soqlQuery);
             if queryResultOrError is error {
@@ -65,7 +67,6 @@ service "/data/ChangeEvents" on changeEventListener {
                 account = {
                     Id: <string?>(accountMap["Id"]),
                     Name: <string?>(accountMap["Name"]),
-                    Email__c: <string?>(accountMap["Email__c"]),
                     Phone: <string?>(accountMap["Phone"]),
                     ShippingStreet: <string?>(accountMap["ShippingStreet"]),
                     ShippingCity: <string?>(accountMap["ShippingCity"]),
@@ -73,7 +74,9 @@ service "/data/ChangeEvents" on changeEventListener {
                     ShippingPostalCode: <string?>(accountMap["ShippingPostalCode"]),
                     ShippingCountry: <string?>(accountMap["ShippingCountry"]),
                     Description: <string?>(accountMap["Description"]),
-                    Stripe_Customer_Id__c: <string?>(accountMap["Stripe_Customer_Id__c"])
+                    Stripe_Customer_Id__c: <string?>(accountMap["Stripe_Customer_Id__c"]),
+                    "RecordTypeId": accountMap["RecordTypeId"],
+                    "AccountStatus__c": accountMap["AccountStatus__c"]
                 };
                 log:printInfo("[onCreate] Fetched full Account record", accountId = account?.Id);
             } else {
@@ -152,12 +155,6 @@ service "/data/ChangeEvents" on changeEventListener {
     remote function onUpdate(salesforce:EventData eventData) returns error? {
         log:printInfo("Received update event from Salesforce");
 
-        // Only process if sync direction allows SF to Stripe
-        if syncDirection == STRIPE_TO_SF {
-            log:printInfo("Sync direction is Stripe to SF, skipping update event");
-            return;
-        }
-
         // Determine object type from event metadata
         string entityType = eventData.metadata?.entityName ?: "";
         string recordId = eventData.metadata?.recordId ?: "";
@@ -205,7 +202,15 @@ service "/data/ChangeEvents" on changeEventListener {
             // CDC changedData only contains changed fields - fetch full record to get all fields including Stripe_Customer_Id__c
             SalesforceAccount account;
             // Query with flexible map type to handle optional custom fields
-            string soqlQuery = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, Email__c FROM Account WHERE Id = '${recordId}'`;
+            // Include RecordTypeId and AccountStatus__c if filters are configured
+            string soqlQuery = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c`;
+            if recordTypeFilter.length() > 0 {
+                soqlQuery += ", RecordTypeId";
+            }
+            if accountStatusFilter.length() > 0 {
+                soqlQuery += ", AccountStatus__c";
+            }
+            soqlQuery += string ` FROM Account WHERE Id = '${recordId}'`;
             
             stream<map<anydata>, error?>|error queryResultOrError = salesforceClient->query(soqlQuery);
             if queryResultOrError is error {
@@ -223,7 +228,6 @@ service "/data/ChangeEvents" on changeEventListener {
                 account = {
                     Id: <string?>(accountMap["Id"]),
                     Name: <string?>(accountMap["Name"]),
-                    Email__c: <string?>(accountMap["Email__c"]),
                     Phone: <string?>(accountMap["Phone"]),
                     ShippingStreet: <string?>(accountMap["ShippingStreet"]),
                     ShippingCity: <string?>(accountMap["ShippingCity"]),
@@ -231,7 +235,9 @@ service "/data/ChangeEvents" on changeEventListener {
                     ShippingPostalCode: <string?>(accountMap["ShippingPostalCode"]),
                     ShippingCountry: <string?>(accountMap["ShippingCountry"]),
                     Description: <string?>(accountMap["Description"]),
-                    Stripe_Customer_Id__c: <string?>(accountMap["Stripe_Customer_Id__c"])
+                    Stripe_Customer_Id__c: <string?>(accountMap["Stripe_Customer_Id__c"]),
+                    "RecordTypeId": accountMap["RecordTypeId"],
+                    "AccountStatus__c": accountMap["AccountStatus__c"]
                 };
                 log:printInfo("[onUpdate] Fetched full Account record", accountId = account?.Id);
             } else {
@@ -296,12 +302,6 @@ service "/data/ChangeEvents" on changeEventListener {
     remote function onDelete(salesforce:EventData eventData) returns error? {
         log:printInfo("Received delete event from Salesforce");
 
-        // Only process if sync direction allows SF to Stripe
-        if syncDirection == STRIPE_TO_SF {
-            log:printInfo("Sync direction is Stripe to SF, skipping delete event");
-            return;
-        }
-
         // Determine object type from event metadata
         string entityType = eventData.metadata?.entityName ?: "";
         string recordId = eventData.metadata?.recordId ?: "";
@@ -336,12 +336,6 @@ service "/data/ChangeEvents" on changeEventListener {
     // Handle Restore Events
     remote function onRestore(salesforce:EventData eventData) returns error? {
         log:printInfo("Received restore event from Salesforce");
-
-        // Only process if sync direction allows SF to Stripe
-        if syncDirection == STRIPE_TO_SF {
-            log:printInfo("Sync direction is Stripe to SF, skipping restore event");
-            return;
-        }
 
         // Determine object type from event metadata
         string entityType = eventData.metadata?.entityName ?: "";

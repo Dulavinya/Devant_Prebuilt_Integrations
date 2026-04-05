@@ -12,7 +12,6 @@ configurable string salesforceRefreshUrl = ?;
 configurable string stripeApiKey = ?;
 
 // Sync Configuration
-configurable SyncDirection syncDirection = SF_TO_STRIPE;
 configurable SourceObject sourceObject = BOTH;
 configurable MatchKey matchKey = EMAIL;
 configurable boolean writeBackStripeId = true;

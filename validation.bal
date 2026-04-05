@@ -8,14 +8,16 @@ public function validateAccount(SalesforceAccount account) returns error? {
     }
 
     // Validate email format if present and match key is EMAIL
+    // Note: Accounts don't have a standard email field, only optional Email__c custom field
+    // Email-based matching is not recommended for Accounts - use SALESFORCE_ID instead
     if matchKey == EMAIL {
-        string? email = (); // Email__c field removed from Account type
+        string? email = account["Email__c"] is string ? <string>account["Email__c"] : ();
         if email is string && email != "" && !isValidEmail(email) {
             log:printWarn("Account has invalid email format", accountId = account?.Id, email = email);
             return error("Invalid email format");
         }
         if email is () || email == "" {
-            log:printWarn("Account has no email, will create new customer without email-based matching", accountId = account?.Id);
+            log:printWarn("Account has no email (Email__c field not populated or doesn't exist), will create new customer without email-based matching", accountId = account?.Id);
         }
     }
     // SALESFORCE_ID uses SF Id stored in Stripe metadata — always present if Id check above passed

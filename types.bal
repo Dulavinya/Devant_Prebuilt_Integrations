@@ -1,10 +1,3 @@
-// Sync Direction Enum
-public enum SyncDirection {
-    SF_TO_STRIPE,
-    STRIPE_TO_SF,
-    BIDIRECTIONAL
-}
-
 // Source Object Enum
 public enum SourceObject {
     ACCOUNT,
@@ -22,7 +15,6 @@ public enum MatchKey {
 public type SalesforceAccount record {|
     string? Id;
     string? Name;
-    string? Email__c;
     string? Phone;
     string? ShippingStreet;
     string? ShippingCity;
@@ -31,6 +23,7 @@ public type SalesforceAccount record {|
     string? ShippingCountry;
     string? Description;
     string? Stripe_Customer_Id__c;
+    // Email__c is optional custom field - accessed via rest field (anydata...)
     anydata...;
 |};
 

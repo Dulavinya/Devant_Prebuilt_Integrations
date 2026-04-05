@@ -11,7 +11,9 @@ public function syncAccountToStripe(SalesforceAccount account, boolean isUpdate 
     }
 
     // Check if record passes filters (RecordTypeId and AccountStatus__c are optional - may not exist in org)
-    if !passFilters((), ()) {
+    string? recordTypeId = account["RecordTypeId"] is string ? <string>account["RecordTypeId"] : ();
+    string? accountStatus = account["AccountStatus__c"] is string ? <string>account["AccountStatus__c"] : ();
+    if !passFilters(recordTypeId, accountStatus) {
         log:printInfo("Account filtered out, skipping sync", accountId = account?.Id);
         return;
     }
