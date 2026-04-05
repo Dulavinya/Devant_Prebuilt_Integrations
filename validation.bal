@@ -9,7 +9,7 @@ public function validateAccount(SalesforceAccount account) returns error? {
 
     // Validate email format if present and match key is EMAIL
     if matchKey == EMAIL {
-        string? email = account?.Email__c;
+        string? email = (); // Email__c field removed from Account type
         if email is string && email != "" && !isValidEmail(email) {
             log:printWarn("Account has invalid email format", accountId = account?.Id, email = email);
             return error("Invalid email format");

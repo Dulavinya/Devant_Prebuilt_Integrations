@@ -43,54 +43,38 @@ service "/data/ChangeEvents" on changeEventListener {
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
             // Try to fetch full Account record to ensure we have all fields
             SalesforceAccount account;
-            string soqlQueryFull = string `SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId, AccountStatus__c FROM Account WHERE Id = '${recordId}'`;
-            string soqlQueryNoEmail = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId, AccountStatus__c FROM Account WHERE Id = '${recordId}'`;
-            string soqlQueryNoStatus = string `SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId FROM Account WHERE Id = '${recordId}'`;
-            string soqlQueryMinimal = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId FROM Account WHERE Id = '${recordId}'`;
+            // Query with flexible map type to handle optional custom fields
+            string soqlQuery = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, Email__c FROM Account WHERE Id = '${recordId}'`;
             
-            stream<SalesforceAccount, error?>|error queryResultOrError = salesforceClient->query(soqlQueryFull);
-            stream<SalesforceAccount, error?> queryResult;
+            stream<map<anydata>, error?>|error queryResultOrError = salesforceClient->query(soqlQuery);
             if queryResultOrError is error {
-                string errorMsg = queryResultOrError.message();
-                if errorMsg.includes("Email__c") {
-                    log:printInfo("[onCreate] Email__c field not found, querying without it");
-                    stream<SalesforceAccount, error?>|error fallbackResult = salesforceClient->query(soqlQueryNoEmail);
-                    if fallbackResult is error {
-                        log:printError("[onCreate] SOQL query failed", 'error = fallbackResult, recordId = recordId);
-                        return;
-                    }
-                    queryResult = fallbackResult;
-                } else if errorMsg.includes("AccountStatus__c") {
-                    log:printInfo("[onCreate] AccountStatus__c field not found, querying without it");
-                    stream<SalesforceAccount, error?>|error fallbackResult = salesforceClient->query(soqlQueryNoStatus);
-                    if fallbackResult is error {
-                        string fallbackErrorMsg = fallbackResult.message();
-                        if fallbackErrorMsg.includes("Email__c") {
-                            log:printInfo("[onCreate] Email__c also not found, using minimal query");
-                            stream<SalesforceAccount, error?>|error minimalResult = salesforceClient->query(soqlQueryMinimal);
-                            if minimalResult is error {
-                                log:printError("[onCreate] SOQL query failed", 'error = minimalResult, recordId = recordId);
-                                return;
-                            }
-                            queryResult = minimalResult;
-                        } else {
-                            log:printError("[onCreate] SOQL query failed", 'error = fallbackResult, recordId = recordId);
-                            return;
-                        }
-                    } else {
-                        queryResult = fallbackResult;
-                    }
-                } else {
-                    log:printError("[onCreate] SOQL query failed", 'error = queryResultOrError, recordId = recordId);
-                    return;
-                }
-            } else {
-                queryResult = queryResultOrError;
+                log:printError("[onCreate] SOQL query failed for Account", 'error = queryResultOrError, recordId = recordId);
+                return;
+            }
+            stream<map<anydata>, error?> queryResult = queryResultOrError;
+            
+            record {|map<anydata> value;|}?|error nextRecord = queryResult.next();
+            if nextRecord is error {
+                log:printError("[onCreate] Failed to read Account query result", 'error = nextRecord, recordId = recordId);
+                return;
             }
             
-            record {|SalesforceAccount value;|}? queryRecord = check queryResult.next();
-            if queryRecord is record {|SalesforceAccount value;|} {
-                account = queryRecord.value;
+            record {|map<anydata> value;|}? queryRecord = nextRecord;
+            if queryRecord is record {|map<anydata> value;|} {
+                map<anydata> accountMap = queryRecord.value;
+                account = {
+                    Id: <string?>(accountMap["Id"]),
+                    Name: <string?>(accountMap["Name"]),
+                    Email__c: <string?>(accountMap["Email__c"]),
+                    Phone: <string?>(accountMap["Phone"]),
+                    ShippingStreet: <string?>(accountMap["ShippingStreet"]),
+                    ShippingCity: <string?>(accountMap["ShippingCity"]),
+                    ShippingState: <string?>(accountMap["ShippingState"]),
+                    ShippingPostalCode: <string?>(accountMap["ShippingPostalCode"]),
+                    ShippingCountry: <string?>(accountMap["ShippingCountry"]),
+                    Description: <string?>(accountMap["Description"]),
+                    Stripe_Customer_Id__c: <string?>(accountMap["Stripe_Customer_Id__c"])
+                };
                 log:printInfo("[onCreate] Fetched full Account record", accountId = account?.Id);
             } else {
                 // Fallback to CDC data if query returns nothing
@@ -112,25 +96,37 @@ service "/data/ChangeEvents" on changeEventListener {
             // Fetch full record to ensure we have all fields
             SalesforceContact contact;
             string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
-            stream<SalesforceContact, error?>|error queryResultOrError = salesforceClient->query(soqlQuery);
-            stream<SalesforceContact, error?> queryResult;
             
+            stream<map<anydata>, error?>|error queryResultOrError = salesforceClient->query(soqlQuery);
             if queryResultOrError is error {
                 log:printError("[onCreate] SOQL query failed for Contact", 'error = queryResultOrError, recordId = recordId);
                 return;
-            } else {
-                queryResult = queryResultOrError;
             }
+            stream<map<anydata>, error?> queryResult = queryResultOrError;
             
-            record {|SalesforceContact value;|}?|error nextRecord = queryResult.next();
+            record {|map<anydata> value;|}?|error nextRecord = queryResult.next();
             if nextRecord is error {
                 log:printError("[onCreate] Failed to read Contact query result", 'error = nextRecord, recordId = recordId);
                 return;
             }
             
-            record {|SalesforceContact value;|}? queryRecord = nextRecord;
-            if queryRecord is record {|SalesforceContact value;|} {
-                contact = queryRecord.value;
+            record {|map<anydata> value;|}? queryRecord = nextRecord;
+            if queryRecord is record {|map<anydata> value;|} {
+                map<anydata> contactMap = queryRecord.value;
+                contact = {
+                    Id: <string?>(contactMap["Id"]),
+                    FirstName: <string?>(contactMap["FirstName"]),
+                    LastName: <string?>(contactMap["LastName"]),
+                    Email: <string?>(contactMap["Email"]),
+                    Phone: <string?>(contactMap["Phone"]),
+                    MailingStreet: <string?>(contactMap["MailingStreet"]),
+                    MailingCity: <string?>(contactMap["MailingCity"]),
+                    MailingState: <string?>(contactMap["MailingState"]),
+                    MailingPostalCode: <string?>(contactMap["MailingPostalCode"]),
+                    MailingCountry: <string?>(contactMap["MailingCountry"]),
+                    Description: <string?>(contactMap["Description"]),
+                    Stripe_Customer_Id__c: <string?>(contactMap["Stripe_Customer_Id__c"])
+                };
                 log:printInfo("[onCreate] Fetched full Contact record", contactId = contact?.Id);
             } else {
                 // Fallback to CDC data if query returns nothing
@@ -208,57 +204,35 @@ service "/data/ChangeEvents" on changeEventListener {
         if entityType == "Account" && (sourceObject == ACCOUNT || sourceObject == BOTH) {
             // CDC changedData only contains changed fields - fetch full record to get all fields including Stripe_Customer_Id__c
             SalesforceAccount account;
-            string soqlQueryFull = string `SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId, AccountStatus__c FROM Account WHERE Id = '${recordId}'`;
-            string soqlQueryNoEmail = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId, AccountStatus__c FROM Account WHERE Id = '${recordId}'`;
-            string soqlQueryNoStatus = string `SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId FROM Account WHERE Id = '${recordId}'`;
-            string soqlQueryMinimal = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId FROM Account WHERE Id = '${recordId}'`;
+            // Query with flexible map type to handle optional custom fields
+            string soqlQuery = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, Email__c FROM Account WHERE Id = '${recordId}'`;
             
-            stream<SalesforceAccount, error?>|error queryResultOrError = salesforceClient->query(soqlQueryFull);
-            stream<SalesforceAccount, error?> queryResult;
+            stream<map<anydata>, error?>|error queryResultOrError = salesforceClient->query(soqlQuery);
             if queryResultOrError is error {
-                string errorMsg = queryResultOrError.message();
-                if errorMsg.includes("Email__c") {
-                    log:printInfo("[onUpdate] Email__c field not found, querying without it");
-                    stream<SalesforceAccount, error?>|error fallbackResult = salesforceClient->query(soqlQueryNoEmail);
-                    if fallbackResult is error {
-                        log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = fallbackResult, recordId = recordId);
-                        return;
-                    }
-                    queryResult = fallbackResult;
-                } else if errorMsg.includes("AccountStatus__c") {
-                    log:printInfo("[onUpdate] AccountStatus__c field not found, querying without it");
-                    stream<SalesforceAccount, error?>|error fallbackResult = salesforceClient->query(soqlQueryNoStatus);
-                    if fallbackResult is error {
-                        string fallbackErrorMsg = fallbackResult.message();
-                        if fallbackErrorMsg.includes("Email__c") {
-                            log:printInfo("[onUpdate] Email__c also not found, using minimal query");
-                            stream<SalesforceAccount, error?>|error minimalResult = salesforceClient->query(soqlQueryMinimal);
-                            if minimalResult is error {
-                                log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = minimalResult, recordId = recordId);
-                                return;
-                            }
-                            queryResult = minimalResult;
-                        } else {
-                            log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = fallbackResult, recordId = recordId);
-                            return;
-                        }
-                    } else {
-                        queryResult = fallbackResult;
-                    }
-                } else {
-                    log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = queryResultOrError, recordId = recordId);
-                    return;
-                }
-            } else {
-                queryResult = queryResultOrError;
+                log:printError("[onUpdate] SOQL query failed for Account", 'error = queryResultOrError, recordId = recordId);
+                return;
             }
+            stream<map<anydata>, error?> queryResult = queryResultOrError;
             
-            record {|SalesforceAccount value;|}|error? queryRecord = queryResult.next();
+            record {|map<anydata> value;|}|error? queryRecord = queryResult.next();
             if queryRecord is error {
                 log:printError("[onUpdate] Failed to read query result, cannot sync without full record", 'error = queryRecord, recordId = recordId);
                 return;
-            } else if queryRecord is record {|SalesforceAccount value;|} {
-                account = queryRecord.value;
+            } else if queryRecord is record {|map<anydata> value;|} {
+                map<anydata> accountMap = queryRecord.value;
+                account = {
+                    Id: <string?>(accountMap["Id"]),
+                    Name: <string?>(accountMap["Name"]),
+                    Email__c: <string?>(accountMap["Email__c"]),
+                    Phone: <string?>(accountMap["Phone"]),
+                    ShippingStreet: <string?>(accountMap["ShippingStreet"]),
+                    ShippingCity: <string?>(accountMap["ShippingCity"]),
+                    ShippingState: <string?>(accountMap["ShippingState"]),
+                    ShippingPostalCode: <string?>(accountMap["ShippingPostalCode"]),
+                    ShippingCountry: <string?>(accountMap["ShippingCountry"]),
+                    Description: <string?>(accountMap["Description"]),
+                    Stripe_Customer_Id__c: <string?>(accountMap["Stripe_Customer_Id__c"])
+                };
                 log:printInfo("[onUpdate] Fetched full Account record", accountId = account?.Id);
             } else {
                 // Query returned nothing - record may have been deleted
@@ -274,23 +248,39 @@ service "/data/ChangeEvents" on changeEventListener {
             // CDC changedData only contains changed fields - fetch full record to get FirstName/LastName
             SalesforceContact contact;
             string soqlQuery = string `SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, MailingState, MailingPostalCode, MailingCountry, Description, Stripe_Customer_Id__c FROM Contact WHERE Id = '${recordId}'`;
-            stream<SalesforceContact, error?>|error queryResult = salesforceClient->query(soqlQuery);
-            if queryResult is error {
-                log:printError("[onUpdate] SOQL query failed, cannot sync without full record", 'error = queryResult, recordId = recordId);
+            
+            stream<map<anydata>, error?>|error queryResultOrError = salesforceClient->query(soqlQuery);
+            if queryResultOrError is error {
+                log:printError("[onUpdate] SOQL query failed for Contact", 'error = queryResultOrError, recordId = recordId);
                 return;
+            }
+            stream<map<anydata>, error?> queryResult = queryResultOrError;
+            
+            record {|map<anydata> value;|}|error? queryRecord = queryResult.next();
+            if queryRecord is error {
+                log:printError("[onUpdate] Failed to read query result, cannot sync without full record", 'error = queryRecord, recordId = recordId);
+                return;
+            } else if queryRecord is record {|map<anydata> value;|} {
+                map<anydata> contactMap = queryRecord.value;
+                contact = {
+                    Id: <string?>(contactMap["Id"]),
+                    FirstName: <string?>(contactMap["FirstName"]),
+                    LastName: <string?>(contactMap["LastName"]),
+                    Email: <string?>(contactMap["Email"]),
+                    Phone: <string?>(contactMap["Phone"]),
+                    MailingStreet: <string?>(contactMap["MailingStreet"]),
+                    MailingCity: <string?>(contactMap["MailingCity"]),
+                    MailingState: <string?>(contactMap["MailingState"]),
+                    MailingPostalCode: <string?>(contactMap["MailingPostalCode"]),
+                    MailingCountry: <string?>(contactMap["MailingCountry"]),
+                    Description: <string?>(contactMap["Description"]),
+                    Stripe_Customer_Id__c: <string?>(contactMap["Stripe_Customer_Id__c"])
+                };
+                log:printInfo("[onUpdate] Fetched full Contact record", contactId = contact?.Id);
             } else {
-                record {|SalesforceContact value;|}|error? queryRecord = queryResult.next();
-                if queryRecord is error {
-                    log:printError("[onUpdate] Failed to read query result, cannot sync without full record", 'error = queryRecord, recordId = recordId);
-                    return;
-                } else if queryRecord is record {|SalesforceContact value;|} {
-                    contact = queryRecord.value;
-                    log:printInfo("[onUpdate] Fetched full Contact record", contactId = contact?.Id);
-                } else {
-                    // Query returned nothing - record may have been deleted
-                    log:printWarn("[onUpdate] SOQL query returned no results, cannot sync without full record", recordId = recordId);
-                    return;
-                }
+                // Query returned nothing - record may have been deleted
+                log:printWarn("[onUpdate] SOQL query returned no results, cannot sync without full record", recordId = recordId);
+                return;
             }
             log:printInfo("[onUpdate] Contact parsed", contactId = contact?.Id);
             error? result = syncContactToStripe(contact, true);

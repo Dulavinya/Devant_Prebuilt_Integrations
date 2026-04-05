@@ -36,7 +36,8 @@ public isolated function mapAccountToStripeCustomer(SalesforceAccount account) r
     };
 
     putIfNonEmpty(payload, "name", account?.Name);
-    putIfNonEmpty(payload, "email", account?.Email__c);
+    // Email__c is optional custom field - if account has it, map it
+    putIfNonEmpty(payload, "email", account.Email__c);
     putIfNonEmpty(payload, "phone", account?.Phone);
     putIfNonEmpty(payload, "description", account?.Description);
 

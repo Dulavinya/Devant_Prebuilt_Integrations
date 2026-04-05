@@ -10,8 +10,8 @@ public function syncAccountToStripe(SalesforceAccount account, boolean isUpdate 
         return validationResult;
     }
 
-    // Check if record passes filters
-    if !passFilters(account?.RecordTypeId, account?.AccountStatus__c) {
+    // Check if record passes filters (RecordTypeId and AccountStatus__c are optional - may not exist in org)
+    if !passFilters((), ()) {
         log:printInfo("Account filtered out, skipping sync", accountId = account?.Id);
         return;
     }
@@ -27,20 +27,22 @@ public function syncAccountToStripe(SalesforceAccount account, boolean isUpdate 
     if !isUpdate && (existingStripeId is () || existingStripeId == "") {
         string accountId = account?.Id ?: "";
         string soqlQuery = string `SELECT Stripe_Customer_Id__c FROM Account WHERE Id = '${accountId}'`;
-        stream<SalesforceAccount, error?> queryResult = check salesforceClient->query(soqlQuery);
-        record {|SalesforceAccount value;|}? queryRecord = check queryResult.next();
-        if queryRecord is record {|SalesforceAccount value;|} {
-            string? refetchedStripeId = queryRecord.value?.Stripe_Customer_Id__c;
-            if refetchedStripeId is string && refetchedStripeId != "" {
-                log:printInfo("[syncAccountToStripe] Stripe ID already exists (concurrent event), skipping", accountId = accountId, stripeCustomerId = refetchedStripeId);
-                return;
+        stream<map<anydata>, error?>|error queryResultOrError = salesforceClient->query(soqlQuery);
+        if queryResultOrError !is error {
+            record {|map<anydata> value;|}?|error nextOrError = queryResultOrError.next();
+            if nextOrError !is error && nextOrError is record {|map<anydata> value;|} {
+                anydata refetchedStripeIdAny = nextOrError.value["Stripe_Customer_Id__c"];
+                if refetchedStripeIdAny is string && refetchedStripeIdAny != "" {
+                    log:printInfo("[syncAccountToStripe] Stripe ID already exists (concurrent event), skipping", accountId = accountId, stripeCustomerId = refetchedStripeIdAny);
+                    return;
+                }
             }
         }
     }
     
     // If no Stripe ID exists, search by match key
     if existingStripeId is () || existingStripeId == "" {
-        string? foundStripeId = check searchStripeCustomerByMatchKey(account?.Id, account?.Email__c, ());
+        string? foundStripeId = check searchStripeCustomerByMatchKey(account?.Id, (), ());
         if foundStripeId is string {
             existingStripeId = foundStripeId;
             log:printInfo("[syncAccountToStripe] Found existing Stripe customer by match key", stripeCustomerId = foundStripeId, matchKey = matchKey);
@@ -84,7 +86,7 @@ public function syncContactToStripe(SalesforceContact contact, boolean isUpdate 
         return validationResult;
     }
 
-    // Check if record passes filters (Contact doesn't have RecordType, only Account does)
+    // Check if record passes filters (Contact doesn't have RecordTypeId or AccountStatus__c fields)
     if !passFilters((), ()) {
         log:printInfo("Contact filtered out, skipping sync", contactId = contact?.Id);
         return;

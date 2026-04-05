@@ -31,8 +31,6 @@ public type SalesforceAccount record {|
     string? ShippingCountry;
     string? Description;
     string? Stripe_Customer_Id__c;
-    string? RecordTypeId;
-    string? AccountStatus__c;
     anydata...;
 |};
 

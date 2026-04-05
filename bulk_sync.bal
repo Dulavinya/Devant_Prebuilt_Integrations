@@ -4,55 +4,32 @@ import ballerina/log;
 public function bulkSyncAccountsToStripe() returns error? {
     log:printInfo("Starting bulk sync of Accounts from Salesforce to Stripe");
 
-    // Try with all optional fields first, fallback if they don't exist
-    string soqlQueryFull = "SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, " +
-                           "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId, AccountStatus__c FROM Account";
-    string soqlQueryNoEmail = "SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, " +
-                              "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId, AccountStatus__c FROM Account";
-    string soqlQueryNoStatus = "SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, " +
-                               "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId FROM Account";
-    string soqlQueryMinimal = "SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, " +
-                              "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, RecordTypeId FROM Account";
+    // Query all Account fields (optional filter fields not queried if they don't exist in org)
+    string soqlQuery = "SELECT Id, Name, Email__c, Phone, ShippingStreet, ShippingCity, ShippingState, " +
+                       "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c FROM Account";
 
-    // Execute query with fallback logic
-    stream<SalesforceAccount, error?>|error accountStreamResult = salesforceClient->query(soqlQueryFull);
-    stream<SalesforceAccount, error?> accountStream;
-    if accountStreamResult is error {
-        string errorMsg = accountStreamResult.message();
-        if errorMsg.includes("Email__c") {
-            log:printInfo("Email__c field not found, querying without it");
-            stream<SalesforceAccount, error?>|error fallbackResult = salesforceClient->query(soqlQueryNoEmail);
-            if fallbackResult is error {
-                return fallbackResult;
-            }
-            accountStream = fallbackResult;
-        } else if errorMsg.includes("AccountStatus__c") {
-            log:printInfo("AccountStatus__c field not found, querying without it");
-            stream<SalesforceAccount, error?>|error fallbackResult = salesforceClient->query(soqlQueryNoStatus);
-            if fallbackResult is error {
-                string fallbackErrorMsg = fallbackResult.message();
-                if fallbackErrorMsg.includes("Email__c") {
-                    log:printInfo("Email__c also not found, using minimal query");
-                    accountStream = check salesforceClient->query(soqlQueryMinimal);
-                } else {
-                    return fallbackResult;
-                }
-            } else {
-                accountStream = fallbackResult;
-            }
-        } else {
-            return accountStreamResult;
-        }
-    } else {
-        accountStream = accountStreamResult;
-    }
+    // Execute query with flexible map type to handle optional custom fields
+    stream<map<anydata>, error?> accountStream = check salesforceClient->query(soqlQuery);
 
     int successCount = 0;
     int errorCount = 0;
 
     // Process each account
-    check from SalesforceAccount account in accountStream
+    check from map<anydata> accountData in accountStream
         do {
+            SalesforceAccount account = {
+                Id: <string?>(accountData["Id"]),
+                Name: <string?>(accountData["Name"]),
+                Email__c: <string?>(accountData["Email__c"]),
+                Phone: <string?>(accountData["Phone"]),
+                ShippingStreet: <string?>(accountData["ShippingStreet"]),
+                ShippingCity: <string?>(accountData["ShippingCity"]),
+                ShippingState: <string?>(accountData["ShippingState"]),
+                ShippingPostalCode: <string?>(accountData["ShippingPostalCode"]),
+                ShippingCountry: <string?>(accountData["ShippingCountry"]),
+                Description: <string?>(accountData["Description"]),
+                Stripe_Customer_Id__c: <string?>(accountData["Stripe_Customer_Id__c"])
+            };
             error? result = syncAccountToStripe(account);
             if result is error {
                 log:printError("Failed to sync Account", accountId = account?.Id, 'error = result);
@@ -69,20 +46,34 @@ public function bulkSyncAccountsToStripe() returns error? {
 public function bulkSyncContactsToStripe() returns error? {
     log:printInfo("Starting bulk sync of Contacts from Salesforce to Stripe");
 
-    // Build SOQL query
+    // Build SOQL query - Contact doesn't have RecordTypeId or AccountStatus__c fields
     string soqlQuery = "SELECT Id, FirstName, LastName, Email, Phone, MailingStreet, MailingCity, " +
                        "MailingState, MailingPostalCode, MailingCountry, Description, " +
-                       "Stripe_Customer_Id__c, RecordTypeId FROM Contact";
+                       "Stripe_Customer_Id__c FROM Contact";
 
-    // Execute query
-    stream<SalesforceContact, error?> contactStream = check salesforceClient->query(soqlQuery);
+    // Execute query with flexible map type
+    stream<map<anydata>, error?> contactStream = check salesforceClient->query(soqlQuery);
 
     int successCount = 0;
     int errorCount = 0;
 
     // Process each contact
-    check from SalesforceContact contact in contactStream
+    check from map<anydata> contactData in contactStream
         do {
+            SalesforceContact contact = {
+                Id: <string?>(contactData["Id"]),
+                FirstName: <string?>(contactData["FirstName"]),
+                LastName: <string?>(contactData["LastName"]),
+                Email: <string?>(contactData["Email"]),
+                Phone: <string?>(contactData["Phone"]),
+                MailingStreet: <string?>(contactData["MailingStreet"]),
+                MailingCity: <string?>(contactData["MailingCity"]),
+                MailingState: <string?>(contactData["MailingState"]),
+                MailingPostalCode: <string?>(contactData["MailingPostalCode"]),
+                MailingCountry: <string?>(contactData["MailingCountry"]),
+                Description: <string?>(contactData["Description"]),
+                Stripe_Customer_Id__c: <string?>(contactData["Stripe_Customer_Id__c"])
+            };
             error? result = syncContactToStripe(contact);
             if result is error {
                 log:printError("Failed to sync Contact", contactId = contact?.Id, 'error = result);
