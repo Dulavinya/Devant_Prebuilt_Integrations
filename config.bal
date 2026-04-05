@@ -1,12 +1,16 @@
 import ballerina/http;
 import ballerinax/'client.config as clientConfig;
 
-// Salesforce Configuration
-configurable string salesforceBaseUrl = ?;
-configurable string salesforceClientId = ?;
-configurable string salesforceClientSecret = ?;
-configurable string salesforceRefreshToken = ?;
-configurable string salesforceRefreshUrl = ?;
+// Salesforce Configuration Record Type
+public type SalesforceConfig record {|
+    string baseUrl;
+    string clientId;
+    string clientSecret;
+    string refreshToken;
+    string refreshUrl;
+|};
+
+configurable SalesforceConfig salesforceConfig = ?;
 
 // Stripe Configuration
 configurable string stripeApiKey = ?;
@@ -23,10 +27,10 @@ configurable boolean deleteStripeCustomerOnSalesforceDelete = true;
 
 // Salesforce Auth Configuration
 public function getSalesforceAuthConfig() returns clientConfig:OAuth2RefreshTokenGrantConfig => {
-    refreshUrl: salesforceRefreshUrl,
-    refreshToken: salesforceRefreshToken,
-    clientId: salesforceClientId,
-    clientSecret: salesforceClientSecret
+    refreshUrl: salesforceConfig.refreshUrl,
+    refreshToken: salesforceConfig.refreshToken,
+    clientId: salesforceConfig.clientId,
+    clientSecret: salesforceConfig.clientSecret
 };
 
 // Stripe Auth Configuration

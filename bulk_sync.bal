@@ -6,7 +6,7 @@ public function bulkSyncAccountsToStripe() returns error? {
 
     // Query all Account fields (optional filter fields queried only if filters are configured)
     string soqlQuery = "SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, " +
-                       "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c";
+                       "ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, Email__c";
     if recordTypeFilter.length() > 0 {
         soqlQuery += ", RecordTypeId";
     }
@@ -35,6 +35,7 @@ public function bulkSyncAccountsToStripe() returns error? {
                 ShippingCountry: <string?>(accountData["ShippingCountry"]),
                 Description: <string?>(accountData["Description"]),
                 Stripe_Customer_Id__c: <string?>(accountData["Stripe_Customer_Id__c"]),
+                "Email__c": accountData["Email__c"],
                 "RecordTypeId": accountData["RecordTypeId"],
                 "AccountStatus__c": accountData["AccountStatus__c"]
             };

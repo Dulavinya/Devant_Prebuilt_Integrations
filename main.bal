@@ -7,12 +7,12 @@ import ballerinax/salesforce;
 // Using OAuth2 refresh token auth (avoids SOAP username/password/security token requirement)
 listener salesforce:Listener changeEventListener = new ({
     auth: {
-        refreshUrl: salesforceRefreshUrl,
-        refreshToken: salesforceRefreshToken,
-        clientId: salesforceClientId,
-        clientSecret: salesforceClientSecret
+        refreshUrl: salesforceConfig.refreshUrl,
+        refreshToken: salesforceConfig.refreshToken,
+        clientId: salesforceConfig.clientId,
+        clientSecret: salesforceConfig.clientSecret
     },
-    baseUrl: salesforceBaseUrl
+    baseUrl: salesforceConfig.baseUrl
 });
 
 // Salesforce Change Event Service
@@ -39,7 +39,7 @@ service "/data/ChangeEvents" on changeEventListener {
             SalesforceAccount account;
             // Query with flexible map type to handle optional custom fields
             // Include RecordTypeId and AccountStatus__c if filters are configured
-            string soqlQuery = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c`;
+            string soqlQuery = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, Email__c`;
             if recordTypeFilter.length() > 0 {
                 soqlQuery += ", RecordTypeId";
             }
@@ -75,6 +75,7 @@ service "/data/ChangeEvents" on changeEventListener {
                     ShippingCountry: <string?>(accountMap["ShippingCountry"]),
                     Description: <string?>(accountMap["Description"]),
                     Stripe_Customer_Id__c: <string?>(accountMap["Stripe_Customer_Id__c"]),
+                    "Email__c": accountMap["Email__c"],
                     "RecordTypeId": accountMap["RecordTypeId"],
                     "AccountStatus__c": accountMap["AccountStatus__c"]
                 };
@@ -203,7 +204,7 @@ service "/data/ChangeEvents" on changeEventListener {
             SalesforceAccount account;
             // Query with flexible map type to handle optional custom fields
             // Include RecordTypeId and AccountStatus__c if filters are configured
-            string soqlQuery = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c`;
+            string soqlQuery = string `SELECT Id, Name, Phone, ShippingStreet, ShippingCity, ShippingState, ShippingPostalCode, ShippingCountry, Description, Stripe_Customer_Id__c, Email__c`;
             if recordTypeFilter.length() > 0 {
                 soqlQuery += ", RecordTypeId";
             }
@@ -236,6 +237,7 @@ service "/data/ChangeEvents" on changeEventListener {
                     ShippingCountry: <string?>(accountMap["ShippingCountry"]),
                     Description: <string?>(accountMap["Description"]),
                     Stripe_Customer_Id__c: <string?>(accountMap["Stripe_Customer_Id__c"]),
+                    "Email__c": accountMap["Email__c"],
                     "RecordTypeId": accountMap["RecordTypeId"],
                     "AccountStatus__c": accountMap["AccountStatus__c"]
                 };

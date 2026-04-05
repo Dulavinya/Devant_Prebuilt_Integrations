@@ -36,10 +36,12 @@ public isolated function mapAccountToStripeCustomer(SalesforceAccount account) r
     };
 
     putIfNonEmpty(payload, "name", account?.Name);
-    // Email__c is optional custom field - if account has it, map it
+    // Email__c is optional custom field - map it if present in the record
     // Access from rest field since it may not exist in all orgs
-    string? accountEmail = account["Email__c"] is string ? <string>account["Email__c"] : ();
-    putIfNonEmpty(payload, "email", accountEmail);
+    if account["Email__c"] is string {
+        string accountEmail = <string>account["Email__c"];
+        putIfNonEmpty(payload, "email", accountEmail);
+    }
     putIfNonEmpty(payload, "phone", account?.Phone);
     putIfNonEmpty(payload, "description", account?.Description);
 
